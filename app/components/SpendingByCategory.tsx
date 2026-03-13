@@ -3,10 +3,9 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 export type CategorySpend = {
-  id: number;
   name: string;
   amount: number;
-  color: string;
+  color?: string;
 };
 
 type Props = {
@@ -69,8 +68,8 @@ export default function SpendingByCategory({ data }: Props) {
                 >
                   {filtered.map((entry, index) => (
                     <Cell
-                      key={entry.id}
-                      fill={entry.color || COLORS[index % COLORS.length]}
+                      key={entry.name}
+                      fill={entry.color ?? COLORS[index % COLORS.length]}
                     />
                   ))}
                 </Pie>
@@ -84,7 +83,7 @@ export default function SpendingByCategory({ data }: Props) {
               const pct = total > 0 ? ((entry.amount / total) * 100).toFixed(1) : "0";
               const color = entry.color || COLORS[index % COLORS.length];
               return (
-                <div key={entry.id} className="flex min-w-36 items-center gap-2">
+                <div key={entry.name} className="flex min-w-36 items-center gap-2">
                   <span
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
                     style={{ backgroundColor: color }}
