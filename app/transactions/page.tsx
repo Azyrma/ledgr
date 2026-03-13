@@ -21,6 +21,19 @@ type Transaction = {
 
 type Account = { id: number; name: string };
 
+type SortState = {
+  field: "date" | "description" | "account" | "category" | "amount";
+  dir: "asc" | "desc";
+};
+
+const COLUMNS: { label: string; field: SortState["field"] }[] = [
+  { label: "Date",        field: "date" },
+  { label: "Description", field: "description" },
+  { label: "Account",     field: "account" },
+  { label: "Category",    field: "category" },
+  { label: "Amount",      field: "amount" },
+];
+
 type EditState = {
   id: number;
   field: "date" | "description" | "account" | "category" | "amount";
@@ -35,6 +48,34 @@ function formatCurrency(value: number) {
 function formatDate(iso: string) {
   const [y, m, d] = iso.split("-");
   return `${d}.${m}.${y}`;
+}
+
+type FlatCategory = { id: number; name: string; parent_id: number | null; is_system: number };
+
+const SYSTEM_IDS = new Set([1, 2, 3, 4, 5]);
+
+function buildCategoryPathMap(cats: FlatCategory[]): Map<string, string> {
+  const nodeMap = new Map<number, FlatCategory & { children: FlatCategory[] }>();
+  cats.forEach((c) => nodeMap.set(c.id, { ...c, children: [] }));
+  nodeMap.forEach((node) => {
+    if (node.parent_id !== null) nodeMap.get(node.parent_id)?.children.push(node);
+  });
+
+  function getPath(id: number): string {
+    const parts: string[] = [];
+    let cur = nodeMap.get(id);
+    while (cur) {
+      if (!SYSTEM_IDS.has(cur.id)) parts.unshift(cur.name);
+      cur = cur.parent_id !== null ? nodeMap.get(cur.parent_id) : undefined;
+    }
+    return parts.join(": ");
+  }
+
+  const result = new Map<string, string>();
+  nodeMap.forEach((cat, id) => {
+    if (!cat.is_system) result.set(cat.name, getPath(id));
+  });
+  return result;
 }
 
 const INPUT_CLS =
@@ -52,6 +93,8 @@ export default function TransactionsPage() {
   const [showCatPopover, setShowCatPopover] = useState(false);
   const [bulkWorking, setBulkWorking]   = useState(false);
   const [editing, setEditing]           = useState<EditState>(null);
+  const [sort, setSort]                 = useState<SortState>({ field: "date", dir: "desc" });
+  const [categoryPaths, setCategoryPaths] = useState<Map<string, string>>(new Map());
   const barRef = useRef<HTMLDivElement>(null);
 
   const uncategorisedCount = transactions.filter((t) => !t.category).length;
@@ -61,8 +104,8 @@ export default function TransactionsPage() {
   const canLink      = selected.size === 2 && selectedTxs.every((t) => t.linked_transaction_id === null);
   const canUnlink    = selected.size === 1 && selectedTxs[0]?.linked_transaction_id !== null;
 
-  const fetchTransactions = useCallback(async (f: Filters) => {
-    setLoading(true);
+  const fetchTransactions = useCallback(async (f: Filters, s: SortState, silent = false) => {
+    if (!silent) setLoading(true);
     const params = new URLSearchParams();
     if (f.search)      params.set("search",     f.search);
     if (f.from)        params.set("from",        f.from);
@@ -72,6 +115,8 @@ export default function TransactionsPage() {
     if (f.minAmount)   params.set("minAmount",   f.minAmount);
     if (f.maxAmount)   params.set("maxAmount",   f.maxAmount);
     if (f.needsReview) params.set("needsReview", "true");
+    params.set("sort", s.field);
+    params.set("dir",  s.dir);
 
     const res  = await fetch(`/api/transactions?${params}`);
     const data = await res.json();
@@ -88,11 +133,22 @@ export default function TransactionsPage() {
       const cats = [...new Set(data.filter((t) => t.category).map((t) => t.category))].sort();
       setCategories(cats);
     });
+    fetch("/api/categories").then((r) => r.json()).then((data: FlatCategory[]) => {
+      setCategoryPaths(buildCategoryPathMap(data));
+    });
   }, []);
 
-  useEffect(() => { fetchTransactions(filters); }, [filters, fetchTransactions]);
+  useEffect(() => { fetchTransactions(filters, sort); }, [filters, sort, fetchTransactions]);
 
-  function refresh() { fetchTransactions(filters); }
+  function refresh() { fetchTransactions(filters, sort, true); }
+
+  function handleSort(field: SortState["field"]) {
+    setSort((prev) =>
+      prev.field === field
+        ? { field, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { field, dir: "asc" }
+    );
+  }
 
   function toggleAll() {
     setSelected(allSelected ? new Set() : new Set(transactions.map((t) => t.id)));
@@ -256,10 +312,17 @@ export default function TransactionsPage() {
               onChange={toggleAll}
               className="h-4 w-4 rounded border-zinc-300 accent-zinc-800 dark:border-zinc-600 dark:accent-zinc-400"
             />
-            {["Date", "Description", "Account", "Category", "Amount"].map((h, i) => (
-              <span key={h} className={`text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500 ${i === 4 ? "text-right" : ""}`}>
-                {h}
-              </span>
+            {COLUMNS.map((col) => (
+              <button
+                key={col.field}
+                onClick={() => handleSort(col.field)}
+                className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wide transition-colors hover:text-zinc-600 dark:hover:text-zinc-300 ${col.field === "amount" ? "justify-end" : ""} ${sort.field === col.field ? "text-zinc-700 dark:text-zinc-300" : "text-zinc-400 dark:text-zinc-500"}`}
+              >
+                {col.label}
+                <span className="text-sm">
+                  {sort.field === col.field ? (sort.dir === "asc" ? "↑" : "↓") : ""}
+                </span>
+              </button>
             ))}
           </div>
 
@@ -281,7 +344,7 @@ export default function TransactionsPage() {
           ) : (
             <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {transactions.map((t) => {
-                const isEditing = (field: EditState["field"]) =>
+                const isEditing = (field: NonNullable<EditState>["field"]) =>
                   editing !== null && editing.id === t.id && editing.field === field;
 
                 return (
@@ -335,10 +398,12 @@ export default function TransactionsPage() {
                       ) : (
                         <div className="flex min-w-0 items-center gap-1.5">
                           {t.linked_transaction_id !== null && (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 shrink-0 text-zinc-400 dark:text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" title="Linked transfer">
-                              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                            </svg>
+                            <span title="Linked transfer" className="shrink-0">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                              </svg>
+                            </span>
                           )}
                           <span
                             onClick={() => startEdit(t.id, "description", t.description)}
@@ -409,9 +474,11 @@ export default function TransactionsPage() {
                         <span
                           onClick={() => startEdit(t.id, "category", t.category)}
                           className={`block cursor-pointer truncate text-sm hover:underline ${t.category ? "text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200" : "text-amber-500 dark:text-amber-400"}`}
-                          title="Click to edit"
+                          title={(categoryPaths.get(t.category) ?? t.category) || "Uncategorised"}
                         >
-                          {t.category || "Uncategorised"}
+                          {t.category
+                            ? (categoryPaths.get(t.category) ?? t.category)
+                            : "Uncategorised"}
                         </span>
                       )}
                     </div>

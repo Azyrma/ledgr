@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import CategoryModal from "../components/CategoryModal";
 
 type Category = {
@@ -230,13 +230,15 @@ export default function CategoriesPage() {
   const [modal, setModal]             = useState<ModalState>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
   const [deleting, setDeleting]       = useState(false);
+  const initialLoad = useRef(true);
 
   const fetchCategories = useCallback(async () => {
-    setLoading(true);
+    if (initialLoad.current) setLoading(true);
     const res  = await fetch("/api/categories");
     const flat: FlatCategory[] = await res.json();
     setRoots(buildTree(flat));
     setLoading(false);
+    initialLoad.current = false;
   }, []);
 
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
