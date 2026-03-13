@@ -20,8 +20,8 @@ type Props = {
   direction?: "up" | "down";
 };
 
-// All system categories — excluded from search paths (only user-created names shown)
-const SYSTEM_IDS = new Set([1, 2, 3, 4, 5]);
+// Root system nodes excluded from paths; Needs(3) and Wants(4) are kept so paths are globally unique
+const SYSTEM_IDS = new Set([1, 2, 5]);
 
 function buildSections(cats: FlatCategory[]): Section[] {
   const map = new Map<number, FlatCategory & { children: FlatCategory[] }>();
@@ -48,7 +48,7 @@ function buildSections(cats: FlatCategory[]): Section[] {
       return node.children.flatMap((c) => collect(c.id, depth));
     }
     return [
-      { value: node.name, label: node.name, path: getPath(id), depth },
+      { value: getPath(id), label: node.name, path: getPath(id), depth },
       ...node.children.flatMap((c) => collect(c.id, depth + 1)),
     ];
   }

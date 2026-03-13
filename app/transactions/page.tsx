@@ -52,7 +52,7 @@ function formatDate(iso: string) {
 
 type FlatCategory = { id: number; name: string; parent_id: number | null; is_system: number };
 
-const SYSTEM_IDS = new Set([1, 2, 3, 4, 5]);
+const SYSTEM_IDS = new Set([1, 2, 5]);
 
 function buildCategoryPathMap(cats: FlatCategory[]): Map<string, string> {
   const nodeMap = new Map<number, FlatCategory & { children: FlatCategory[] }>();
