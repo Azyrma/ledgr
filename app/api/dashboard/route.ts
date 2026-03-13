@@ -33,13 +33,16 @@ function descendantNames(db: Database.Database, rootId: number): string[] {
   `).all(rootId) as { name: string }[]).map((r) => r.name);
 }
 
-// Build a COALESCE(SUM(CASE WHEN category IN (...) THEN ABS(amount) ELSE 0 END), 0) expression.
-// Returns the SQL fragment and the params to prepend (category names).
-function catSumExpr(cats: string[], alias: string): { sql: string; params: string[] } {
+// Build a SUM(CASE WHEN category IN (...) THEN <expr> ELSE 0 END) expression.
+// negate=true  → uses -amount  (expense/savings: outflows are negative, so -amount gives a positive total;
+//                                reimbursements are positive, so -amount subtracts them from the total)
+// negate=false → uses  amount  (income: inflows are positive)
+function catSumExpr(cats: string[], alias: string, negate = false): { sql: string; params: string[] } {
   if (cats.length === 0) return { sql: `0 AS ${alias}`, params: [] };
-  const ph = cats.map(() => "?").join(",");
+  const ph   = cats.map(() => "?").join(",");
+  const expr = negate ? "-amount" : "amount";
   return {
-    sql: `COALESCE(SUM(CASE WHEN category IN (${ph}) THEN ABS(amount) ELSE 0 END), 0) AS ${alias}`,
+    sql: `COALESCE(SUM(CASE WHEN category IN (${ph}) THEN ${expr} ELSE 0 END), 0) AS ${alias}`,
     params: cats,
   };
 }
@@ -55,8 +58,8 @@ function sumPeriod(
   whereParams: (string | number)[]
 ): { income: number; expenses: number; savings: number } {
   const inc = catSumExpr(incCats, "income");
-  const exp = catSumExpr(expCats, "expenses");
-  const sav = catSumExpr(savCats, "savings");
+  const exp = catSumExpr(expCats, "expenses", true);
+  const sav = catSumExpr(savCats, "savings",  true);
 
   return db.prepare(`
     SELECT ${inc.sql}, ${exp.sql}, ${sav.sql}
@@ -127,7 +130,7 @@ export function GET(request: NextRequest) {
     // ── 12-month chart (grouped) ──────────────────────────────────────────
     const chartFrom = toIso(new Date(now.getFullYear(), now.getMonth() - 11, 1));
     const inc = catSumExpr(incCats, "income");
-    const exp = catSumExpr(expCats, "expenses");
+    const exp = catSumExpr(expCats, "expenses", true);
     const chartRows = db.prepare(`
       SELECT strftime('%Y-%m', date) AS ym, ${inc.sql}, ${exp.sql}
       FROM transactions
@@ -162,7 +165,7 @@ export function GET(request: NextRequest) {
 
     // ── Spending by category (expenses only, in selected period) ──────────
     const catRows = db.prepare(`
-      SELECT category, COALESCE(SUM(ABS(amount)), 0) AS amount
+      SELECT category, COALESCE(SUM(-amount), 0) AS amount
       FROM transactions
       WHERE linked_transaction_id IS NULL AND category != '' ${periodC} ${acctTransC}
         AND category IN (${expCats.length > 0 ? expCats.map(() => "?").join(",") : "SELECT NULL WHERE 0"})
