@@ -12,6 +12,14 @@ export function GET(request: NextRequest) {
     const minAmount   = searchParams.get("minAmount")   ?? "";
     const maxAmount   = searchParams.get("maxAmount")   ?? "";
     const needsReview = searchParams.get("needsReview") === "true";
+    const sortField   = searchParams.get("sort") ?? "date";
+    const sortDir     = searchParams.get("dir")  === "asc" ? "ASC" : "DESC";
+
+    const SORTABLE: Record<string, string> = {
+      date: "t.date", description: "t.description",
+      account: "a.name", category: "t.category", amount: "t.amount",
+    };
+    const orderCol = SORTABLE[sortField] ?? "t.date";
 
     const conditions: string[] = [];
     const params: (string | number)[] = [];
@@ -43,7 +51,7 @@ export function GET(request: NextRequest) {
       FROM transactions t
       LEFT JOIN accounts a ON a.id = t.account_id
       ${where}
-      ORDER BY t.date DESC, t.id DESC
+      ORDER BY ${orderCol} ${sortDir}, t.id ${sortDir}
     `).all(...params);
 
     return NextResponse.json(rows);
