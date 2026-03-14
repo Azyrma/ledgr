@@ -1,3 +1,5 @@
+import { formatCurrency } from "@/lib/utils";
+
 export type FinancialHealthData = {
   income: number;
   expenses: number;
@@ -11,14 +13,6 @@ export type FinancialHealthData = {
 type Props = {
   data: FinancialHealthData;
 };
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "CHF",
-    minimumFractionDigits: 2,
-  }).format(value);
-}
 
 function ProgressBar({
   value,

@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { formatCurrency } from "@/lib/utils";
 
 export type MonthlyData = {
   month: string; // e.g. "Jan", "Feb"
@@ -20,15 +21,6 @@ export type MonthlyData = {
 type Props = {
   data: MonthlyData[];
 };
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "CHF",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-}
 
 export default function IncomeExpensesChart({ data }: Props) {
   return (
@@ -49,14 +41,14 @@ export default function IncomeExpensesChart({ data }: Props) {
             axisLine={false}
             tickLine={false}
             tick={{ fontSize: 12, fill: "#a1a1aa" }}
-            tickFormatter={formatCurrency}
+            tickFormatter={(v) => formatCurrency(v, "CHF", 0)}
             width={70}
           />
           <Tooltip
             cursor={{ fill: "rgba(0,0,0,0.04)" }}
             position={{ y: 0 }}
             formatter={(value, name) => [
-              formatCurrency(Number(value)),
+              formatCurrency(Number(value), "CHF", 0),
               String(name).charAt(0).toUpperCase() + String(name).slice(1),
             ]}
             contentStyle={{

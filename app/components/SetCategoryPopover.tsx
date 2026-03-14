@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-
-type FlatCategory = {
-  id: number;
-  name: string;
-  parent_id: number | null;
-  is_system: number;
-};
+import { buildCategoryNodeMap, getCategoryPath, type FlatCat } from "@/lib/categories";
 
 type Account = { id: number; name: string; color: string | null };
 
@@ -20,35 +14,18 @@ type Props = {
   direction?: "up" | "down";
 };
 
-// Root system nodes excluded from paths; Needs(3) and Wants(4) are kept so paths are globally unique
-const SYSTEM_IDS = new Set([1, 2, 5]);
-
-function buildSections(cats: FlatCategory[]): Section[] {
-  const map = new Map<number, FlatCategory & { children: FlatCategory[] }>();
-  cats.forEach((c) => map.set(c.id, { ...c, children: [] }));
-  map.forEach((node) => {
-    if (node.parent_id !== null) map.get(node.parent_id)?.children.push(node);
-  });
-
-  function getPath(id: number): string {
-    const parts: string[] = [];
-    let cur = map.get(id);
-    while (cur) {
-      if (!SYSTEM_IDS.has(cur.id)) parts.unshift(cur.name);
-      cur = cur.parent_id !== null ? map.get(cur.parent_id) : undefined;
-    }
-    return parts.join(": ");
-  }
+function buildSections(cats: FlatCat[]): Section[] {
+  const map = buildCategoryNodeMap(cats);
 
   function collect(id: number, depth = 0): Option[] {
     const node = map.get(id);
     if (!node) return [];
     if (node.is_system) {
-      // Don't emit system nodes; walk their children at the same depth
       return node.children.flatMap((c) => collect(c.id, depth));
     }
+    const path = getCategoryPath(id, map);
     return [
-      { value: getPath(id), label: node.name, path: getPath(id), depth },
+      { value: path, label: node.name, path, depth },
       ...node.children.flatMap((c) => collect(c.id, depth + 1)),
     ];
   }
@@ -70,7 +47,7 @@ export default function SetCategoryPopover({ onSelect, onClose, direction = "up"
   useEffect(() => {
     fetch("/api/categories")
       .then((r) => r.json())
-      .then((data: FlatCategory[]) => setSections(buildSections(data)));
+      .then((data: FlatCat[]) => setSections(buildSections(data)));
     fetch("/api/accounts")
       .then((r) => r.json())
       .then((data: Account[]) => setAccounts(Array.isArray(data) ? data : []));

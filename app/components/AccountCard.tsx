@@ -1,4 +1,5 @@
 import { ACCOUNT_TYPES } from "./AccountModal";
+import { formatCurrency } from "@/lib/utils";
 
 export type Account = {
   id: number;
@@ -18,14 +19,6 @@ type Props = {
   onEdit: (account: Account) => void;
   onDelete: (account: Account) => void;
 };
-
-function formatCurrency(value: number, currency = "CHF") {
-  return new Intl.NumberFormat("en-CH", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-  }).format(value);
-}
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   checking: (

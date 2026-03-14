@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import type Database from "better-sqlite3";
+import { buildCategoryNodeMap, getCategoryPath, type FlatCat } from "@/lib/categories";
 
 function toIso(d: Date): string {
   return d.toISOString().split("T")[0];
@@ -21,38 +21,21 @@ function getFromDate(range: string, now: Date): string {
   }
 }
 
-// Root system nodes excluded from paths — same rule as the frontend SYSTEM_IDS
-const SYSTEM_ROOT_IDS = new Set([1, 2, 5]);
-
-type CatRow = { id: number; name: string; parent_id: number | null; is_system: number };
-
-// Return all non-system category paths that descend from rootId.
-// Paths are built with the same logic as the frontend: only root system nodes
-// (Income/Expenses/Savings) are excluded, so Needs/Wants appear in paths,
-// making every path globally unique (e.g. "Needs: Miscellaneous" vs "Miscellaneous").
-function descendantPaths(db: Database.Database, rootId: number, allCats: CatRow[]): string[] {
-  const nodeMap = new Map(allCats.map((c) => [c.id, c]));
-
-  function getPath(id: number): string {
-    const parts: string[] = [];
-    let cur = nodeMap.get(id);
-    while (cur) {
-      if (!SYSTEM_ROOT_IDS.has(cur.id)) parts.unshift(cur.name);
-      cur = cur.parent_id !== null ? nodeMap.get(cur.parent_id) : undefined;
+// Return all non-system category paths under rootId by traversing the in-memory nodeMap.
+// avoids per-root recursive CTE queries since allCats is already loaded.
+function descendantPaths(
+  rootId: number,
+  nodeMap: ReturnType<typeof buildCategoryNodeMap>
+): string[] {
+  const result: string[] = [];
+  function traverse(id: number) {
+    for (const child of nodeMap.get(id)?.children ?? []) {
+      if (!child.is_system) result.push(getCategoryPath(child.id, nodeMap));
+      traverse(child.id);
     }
-    return parts.join(": ");
   }
-
-  const descendants = db.prepare(`
-    WITH RECURSIVE tree(id, is_system) AS (
-      SELECT id, is_system FROM categories WHERE parent_id = ?
-      UNION ALL
-      SELECT c.id, c.is_system FROM categories c JOIN tree ON c.parent_id = tree.id
-    )
-    SELECT id FROM tree WHERE is_system = 0
-  `).all(rootId) as { id: number }[];
-
-  return descendants.map((r) => getPath(r.id));
+  traverse(rootId);
+  return result;
 }
 
 // Build a SUM(CASE WHEN category IN (...) THEN <expr> ELSE 0 END) expression.
@@ -105,11 +88,12 @@ export function GET(request: NextRequest) {
     const today = toIso(now);
     const from  = getFromDate(dateRange, now);
 
-    // ── Category path lists (run once) ────────────────────────────────────
-    const allCats = db.prepare(`SELECT id, name, parent_id, is_system FROM categories`).all() as CatRow[];
-    const incCats = descendantPaths(db, 1, allCats); // Income
-    const expCats = descendantPaths(db, 2, allCats); // Expenses (Needs + Wants)
-    const savCats = descendantPaths(db, 5, allCats); // Savings
+    // ── Category path lists (run once, traversed in JS — no per-root CTEs) ──
+    const allCats = db.prepare(`SELECT id, name, parent_id, is_system FROM categories`).all() as FlatCat[];
+    const catNodeMap = buildCategoryNodeMap(allCats);
+    const incCats = descendantPaths(1, catNodeMap); // Income
+    const expCats = descendantPaths(2, catNodeMap); // Expenses (Needs + Wants)
+    const savCats = descendantPaths(5, catNodeMap); // Savings
 
     // Reusable SQL fragments
     const acctTransC = accountIds.length > 0

@@ -1,17 +1,11 @@
+import { formatCurrency } from "@/lib/utils";
+
 type Card = {
   label: string;
   value: number;
   color: string;
   icon: React.ReactNode;
 };
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "CHF",
-    minimumFractionDigits: 2,
-  }).format(value);
-}
 
 type Props = {
   balance: number;
