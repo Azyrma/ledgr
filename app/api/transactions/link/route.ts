@@ -12,8 +12,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid ids." }, { status: 400 });
 
     const db = getDb();
-    if (!db.prepare("SELECT id FROM transactions WHERE id = ?").get(a) ||
-        !db.prepare("SELECT id FROM transactions WHERE id = ?").get(b))
+    const found = db.prepare("SELECT id FROM transactions WHERE id IN (?, ?)").all(a, b) as { id: number }[];
+    if (found.length !== 2)
       return NextResponse.json({ error: "Transaction not found." }, { status: 404 });
 
     const stmt = db.prepare("UPDATE transactions SET linked_transaction_id = ? WHERE id = ?");

@@ -25,7 +25,6 @@ export const CREATE_TABLES = `
     description  TEXT    NOT NULL,
     amount       REAL    NOT NULL,
     category     TEXT    NOT NULL DEFAULT '',
-    category_id  INTEGER REFERENCES categories(id) ON DELETE SET NULL,
     reimbursable INTEGER NOT NULL DEFAULT 0,
     linked_transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
     created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
@@ -54,6 +53,5 @@ export const MIGRATIONS = `
   ALTER TABLE transactions ADD COLUMN reimbursable INTEGER NOT NULL DEFAULT 0;
   UPDATE categories SET parent_id = NULL, color = '#3b82f6' WHERE id = 5;
   ALTER TABLE transactions ADD COLUMN category     TEXT    NOT NULL DEFAULT '';
-  ALTER TABLE transactions ADD COLUMN category_id  INTEGER REFERENCES categories(id) ON DELETE SET NULL;
   ALTER TABLE transactions ADD COLUMN linked_transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL;
 `;

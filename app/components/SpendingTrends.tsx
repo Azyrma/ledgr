@@ -1,4 +1,5 @@
 import { DATE_RANGES } from "./DateFilter";
+import { formatCurrency } from "@/lib/utils";
 
 export type TrendsData = {
   thisWeekExpenses: number;
@@ -14,14 +15,6 @@ type Props = {
   data: TrendsData;
   dateRange: string;
 };
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "CHF",
-    minimumFractionDigits: 2,
-  }).format(value);
-}
 
 function Row({
   label,

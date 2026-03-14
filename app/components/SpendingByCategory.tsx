@@ -1,6 +1,7 @@
 "use client";
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { formatCurrency } from "@/lib/utils";
 
 export type CategorySpend = {
   name: string;
@@ -16,14 +17,6 @@ const COLORS = [
   "#6366f1", "#10b981", "#f59e0b", "#ef4444", "#3b82f6",
   "#ec4899", "#14b8a6", "#f97316", "#8b5cf6", "#84cc16",
 ];
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "CHF",
-    minimumFractionDigits: 2,
-  }).format(value);
-}
 
 function CustomTooltip({ active, payload }: { active?: boolean; payload?: { name: string; value: number }[] }) {
   if (!active || !payload?.length) return null;

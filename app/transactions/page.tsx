@@ -5,6 +5,8 @@ import CsvImportModal from "../components/CsvImportModal";
 import AddTransactionModal from "../components/AddTransactionModal";
 import TransactionFilters, { DEFAULT_FILTERS, type Filters } from "../components/TransactionFilters";
 import SetCategoryPopover from "../components/SetCategoryPopover";
+import { formatCurrency } from "@/lib/utils";
+import { buildCategoryNodeMap, getCategoryPath, type FlatCat } from "@/lib/categories";
 
 type Transaction = {
   id: number;
@@ -41,39 +43,16 @@ type EditState = {
   original: string;
 } | null;
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-CH", { style: "currency", currency: "CHF", minimumFractionDigits: 2 }).format(value);
-}
-
 function formatDate(iso: string) {
   const [y, m, d] = iso.split("-");
   return `${d}.${m}.${y}`;
 }
 
-type FlatCategory = { id: number; name: string; parent_id: number | null; is_system: number };
-
-const SYSTEM_IDS = new Set([1, 2, 5]);
-
-function buildCategoryPathMap(cats: FlatCategory[]): Map<string, string> {
-  const nodeMap = new Map<number, FlatCategory & { children: FlatCategory[] }>();
-  cats.forEach((c) => nodeMap.set(c.id, { ...c, children: [] }));
-  nodeMap.forEach((node) => {
-    if (node.parent_id !== null) nodeMap.get(node.parent_id)?.children.push(node);
-  });
-
-  function getPath(id: number): string {
-    const parts: string[] = [];
-    let cur = nodeMap.get(id);
-    while (cur) {
-      if (!SYSTEM_IDS.has(cur.id)) parts.unshift(cur.name);
-      cur = cur.parent_id !== null ? nodeMap.get(cur.parent_id) : undefined;
-    }
-    return parts.join(": ");
-  }
-
+function buildCategoryPathMap(cats: FlatCat[]): Map<string, string> {
+  const nodeMap = buildCategoryNodeMap(cats);
   const result = new Map<string, string>();
   nodeMap.forEach((cat, id) => {
-    if (!cat.is_system) result.set(cat.name, getPath(id));
+    if (!cat.is_system) result.set(cat.name, getCategoryPath(id, nodeMap));
   });
   return result;
 }
@@ -133,7 +112,7 @@ export default function TransactionsPage() {
       const cats = [...new Set(data.filter((t) => t.category).map((t) => t.category))].sort();
       setCategories(cats);
     });
-    fetch("/api/categories").then((r) => r.json()).then((data: FlatCategory[]) => {
+    fetch("/api/categories").then((r) => r.json()).then((data: FlatCat[]) => {
       setCategoryPaths(buildCategoryPathMap(data));
     });
   }, []);
@@ -164,11 +143,11 @@ export default function TransactionsPage() {
 
   // ── Inline editing ────────────────────────────────────────────────────────
 
-  function startEdit(id: number, field: EditState["field"], value: string) {
+  function startEdit(id: number, field: NonNullable<EditState>["field"], value: string) {
     // Commit any previous edit first
     const e = editing;
     if (e !== null && (e.id !== id || e.field !== field)) {
-      commitEdit();
+      void commitEdit();
     }
     setEditing({ id, field, value, original: value });
   }
