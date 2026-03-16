@@ -4,13 +4,13 @@ import { getDb } from "@/lib/db";
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const { name, type, currency, color, initial_balance } = await request.json();
+    const { name, type, currency, color, initial_balance, exchange_rate } = await request.json();
     if (!name) return NextResponse.json({ error: "Name is required." }, { status: 400 });
 
     const db = getDb();
     const result = db.prepare(
-      "UPDATE accounts SET name = ?, type = ?, currency = ?, color = ?, initial_balance = ? WHERE id = ?"
-    ).run(name, type, currency, color, initial_balance, id);
+      "UPDATE accounts SET name = ?, type = ?, currency = ?, color = ?, initial_balance = ?, exchange_rate = ? WHERE id = ?"
+    ).run(name, type, currency, color, initial_balance, exchange_rate ?? 1.0, id);
 
     if (result.changes === 0) return NextResponse.json({ error: "Account not found." }, { status: 404 });
     return NextResponse.json({ ok: true });
