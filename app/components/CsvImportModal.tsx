@@ -15,6 +15,7 @@ const BANK_ICONS: Record<BankType, string> = {
   "postfinance":    "🟡",
   "postfinance-cc": "💳",
   "handelsbanken":  "🏦",
+  "moneydance":     "📊",
   "unknown":        "❓",
 };
 
@@ -35,10 +36,11 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
       .catch(() => {});
   }, []);
 
-  function handleFile(f: File) {
-    const type = detectBankType(f.name);
+  async function handleFile(f: File) {
+    const sniff = f.name.endsWith(".csv") ? await f.slice(0, 200).text() : undefined;
+    const type = detectBankType(f.name, sniff);
     if (type === "unknown") {
-      setErrorMsg(`"${f.name}" is not a recognised export file. Expected a PostFinance or Handelsbanken export.`);
+      setErrorMsg(`"${f.name}" is not a recognised export file. Expected a PostFinance, Handelsbanken, or Moneydance export.`);
       setStep("error");
       return;
     }
@@ -122,7 +124,7 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
                     Drop your bank export here, or click to browse
                   </p>
                   <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-                    PostFinance (.csv) · Handelsbanken (.xlsx)
+                    PostFinance (.csv) · Handelsbanken (.xlsx) · Moneydance (.csv)
                   </p>
                 </div>
                 <input
