@@ -30,6 +30,7 @@ export type AccountFormData = {
   currency: string;
   color: string;
   initial_balance: number;
+  exchange_rate: number;
 };
 
 type Props = {
@@ -61,6 +62,7 @@ export default function AccountModal({ initial, onClose, onSaved }: Props) {
     currency:        initial?.currency        ?? "CHF",
     color:           initial?.color           ?? "#6366f1",
     initial_balance: initial?.initial_balance ?? 0,
+    exchange_rate:   initial?.exchange_rate   ?? 1.0,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState("");
@@ -137,6 +139,20 @@ export default function AccountModal({ initial, onClose, onSaved }: Props) {
               </select>
             </Field>
           </div>
+
+          {form.currency !== "CHF" && (
+            <Field label="Exchange rate to CHF">
+              <input
+                type="number"
+                step="0.00001"
+                min="0"
+                placeholder="e.g. 0.08750"
+                value={form.exchange_rate}
+                onChange={(e) => set("exchange_rate", parseFloat(e.target.value) || 0)}
+                className={inputClass}
+              />
+            </Field>
+          )}
 
           <Field label="Initial balance">
             <input
