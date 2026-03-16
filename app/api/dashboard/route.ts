@@ -39,20 +39,21 @@ function descendantPaths(
 }
 
 // Build a SUM(CASE WHEN category IN (...) THEN <expr> ELSE 0 END) expression.
-// negate=true  → uses -amount  (expense/savings: outflows are negative, so -amount gives a positive total;
-//                                reimbursements are positive, so -amount subtracts them from the total)
-// negate=false → uses  amount  (income: inflows are positive)
+// negate=true  → uses -(t.amount * a.exchange_rate)  (expense/savings: outflows are negative, so negating gives a positive total;
+//                                                      reimbursements are positive, so negating subtracts them from the total)
+// negate=false → uses  (t.amount * a.exchange_rate)  (income: inflows are positive)
 function catSumExpr(cats: string[], alias: string, negate = false): { sql: string; params: string[] } {
   if (cats.length === 0) return { sql: `0 AS ${alias}`, params: [] };
   const ph   = cats.map(() => "?").join(",");
-  const expr = negate ? "-amount" : "amount";
+  const expr = negate ? "-(t.amount * a.exchange_rate)" : "(t.amount * a.exchange_rate)";
   return {
-    sql: `COALESCE(SUM(CASE WHEN category IN (${ph}) THEN ${expr} ELSE 0 END), 0) AS ${alias}`,
+    sql: `COALESCE(SUM(CASE WHEN t.category IN (${ph}) THEN ${expr} ELSE 0 END), 0) AS ${alias}`,
     params: cats,
   };
 }
 
-// Sum income / expenses / savings for a given WHERE clause.
+// Sum income / expenses / savings for a given WHERE clause (applied to transactions).
+// Joins accounts to access exchange_rate for CHF conversion.
 // Params order: [...incomeParams, ...expensesParams, ...savingsParams, ...whereParams]
 function sumPeriod(
   db: Database.Database,
@@ -68,7 +69,9 @@ function sumPeriod(
 
   return db.prepare(`
     SELECT ${inc.sql}, ${exp.sql}, ${sav.sql}
-    FROM transactions WHERE linked_transaction_id IS NULL ${whereClause}
+    FROM transactions t
+    LEFT JOIN accounts a ON a.id = t.account_id
+    WHERE t.linked_transaction_id IS NULL ${whereClause}
   `).get(...inc.params, ...exp.params, ...sav.params, ...whereParams) as {
     income: number; expenses: number; savings: number;
   };
@@ -97,19 +100,19 @@ export function GET(request: NextRequest) {
 
     // Reusable SQL fragments
     const acctTransC = accountIds.length > 0
-      ? `AND account_id IN (${accountIds.map(() => "?").join(",")})`
+      ? `AND t.account_id IN (${accountIds.map(() => "?").join(",")})`
       : "";
     const acctAcctC = accountIds.length > 0
       ? `WHERE a.id IN (${accountIds.map(() => "?").join(",")})`
       : "";
     const acctP = accountIds;
 
-    const periodC = from ? "AND date >= ? AND date <= ?" : "AND date <= ?";
+    const periodC = from ? "AND t.date >= ? AND t.date <= ?" : "AND t.date <= ?";
     const periodP: (string | number)[] = from ? [from, today] : [today];
 
-    // ── Total balance (all-time, filtered accounts) ───────────────────────
+    // ── Total balance (all-time, filtered accounts, converted to CHF) ────
     const { balance } = db.prepare(`
-      SELECT COALESCE(SUM(a.initial_balance + COALESCE(t.tx_sum, 0)), 0) AS balance
+      SELECT COALESCE(SUM((a.initial_balance + COALESCE(t.tx_sum, 0)) * a.exchange_rate), 0) AS balance
       FROM accounts a
       LEFT JOIN (
         SELECT account_id, SUM(amount) AS tx_sum
@@ -130,7 +133,7 @@ export function GET(request: NextRequest) {
       prevTo   = toIso(new Date(fromDate.getTime() - 86_400_000));
       prevFrom = toIso(new Date(fromDate.getTime() - diffMs));
     }
-    const prevC = prevFrom ? "AND date >= ? AND date <= ?" : "AND 1=0";
+    const prevC = prevFrom ? "AND t.date >= ? AND t.date <= ?" : "AND 1=0";
     const prevP: (string | number)[] = prevFrom ? [prevFrom, prevTo] : [];
     const prev  = sumPeriod(db, incCats, expCats, savCats, `${prevC} ${acctTransC}`, [...prevP, ...acctP]);
 
@@ -139,9 +142,10 @@ export function GET(request: NextRequest) {
     const inc = catSumExpr(incCats, "income");
     const exp = catSumExpr(expCats, "expenses", true);
     const chartRows = db.prepare(`
-      SELECT strftime('%Y-%m', date) AS ym, ${inc.sql}, ${exp.sql}
-      FROM transactions
-      WHERE linked_transaction_id IS NULL AND date >= ? AND date <= ? ${acctTransC}
+      SELECT strftime('%Y-%m', t.date) AS ym, ${inc.sql}, ${exp.sql}
+      FROM transactions t
+      LEFT JOIN accounts a ON a.id = t.account_id
+      WHERE t.linked_transaction_id IS NULL AND t.date >= ? AND t.date <= ? ${acctTransC}
       GROUP BY ym ORDER BY ym
     `).all(...inc.params, ...exp.params, chartFrom, today, ...acctP) as {
       ym: string; income: number; expenses: number;
@@ -159,24 +163,25 @@ export function GET(request: NextRequest) {
     // ── This week ─────────────────────────────────────────────────────────
     const weekFrom = toIso(addDays(now, -7));
     const week = sumPeriod(db, incCats, expCats, savCats,
-      `AND date >= ? AND date <= ? ${acctTransC}`, [weekFrom, today, ...acctP]);
+      `AND t.date >= ? AND t.date <= ? ${acctTransC}`, [weekFrom, today, ...acctP]);
 
     // ── Same period last year ─────────────────────────────────────────────
     const lyTo   = toIso(new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()));
     const lyFrom = from
       ? toIso(new Date(new Date(from).setFullYear(new Date(from).getFullYear() - 1)))
       : "";
-    const lyC = lyFrom ? "AND date >= ? AND date <= ?" : "AND date <= ?";
+    const lyC = lyFrom ? "AND t.date >= ? AND t.date <= ?" : "AND t.date <= ?";
     const lyP: (string | number)[] = lyFrom ? [lyFrom, lyTo] : [lyTo];
     const ly = sumPeriod(db, incCats, expCats, savCats, `${lyC} ${acctTransC}`, [...lyP, ...acctP]);
 
     // ── Spending by category (expenses only, in selected period) ──────────
     const catRows = db.prepare(`
-      SELECT category, COALESCE(SUM(-amount), 0) AS amount
-      FROM transactions
-      WHERE linked_transaction_id IS NULL AND category != '' ${periodC} ${acctTransC}
-        AND category IN (${expCats.length > 0 ? expCats.map(() => "?").join(",") : "SELECT NULL WHERE 0"})
-      GROUP BY category
+      SELECT t.category, COALESCE(SUM(-(t.amount * a.exchange_rate)), 0) AS amount
+      FROM transactions t
+      LEFT JOIN accounts a ON a.id = t.account_id
+      WHERE t.linked_transaction_id IS NULL AND t.category != '' ${periodC} ${acctTransC}
+        AND t.category IN (${expCats.length > 0 ? expCats.map(() => "?").join(",") : "SELECT NULL WHERE 0"})
+      GROUP BY t.category
       ORDER BY amount DESC
     `).all(...periodP, ...acctP, ...expCats) as { category: string; amount: number }[];
 

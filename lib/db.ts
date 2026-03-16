@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
 import { CREATE_TABLES, MIGRATIONS, SEED_CATEGORIES } from "./schema";
+import { refreshExchangeRates } from "./exchange-rates";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const DB_PATH  = path.join(DATA_DIR, "finance.db");
@@ -26,6 +27,11 @@ export function getDb(): Database.Database {
         // Column already exists — safe to ignore
       }
     }
+
+    // Refresh exchange rates in the background on first startup
+    refreshExchangeRates(db).catch((e) =>
+      console.error("[exchange-rates] Background refresh failed:", e)
+    );
   }
   return db;
 }
