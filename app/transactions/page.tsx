@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, memo } from "react";
 import CsvImportModal from "../components/CsvImportModal";
 import AddTransactionModal from "../components/AddTransactionModal";
 import TransactionFilters, { DEFAULT_FILTERS, type Filters } from "../components/TransactionFilters";
-import SetCategoryPopover from "../components/SetCategoryPopover";
+import SetCategoryPopover, { buildSections, type Section } from "../components/SetCategoryPopover";
 import { formatCurrency } from "@/lib/utils";
 import { buildCategoryNodeMap, getCategoryPath, type FlatCat } from "@/lib/categories";
 
@@ -15,13 +15,16 @@ type Transaction = {
   amount: number;
   category: string;
   reimbursable: number;
+  needs_review: number;
   account_id: number;
   account_name: string;
   account_color: string;
+  account_currency: string;
+  exchange_rate: number;
   linked_transaction_id: number | null;
 };
 
-type Account = { id: number; name: string };
+type Account = { id: number; name: string; color: string | null };
 
 type SortState = {
   field: "date" | "description" | "account" | "category" | "amount";
@@ -43,6 +46,26 @@ type EditState = {
   original: string;
 } | null;
 
+type RecatDialog = {
+  originalCat: string;
+  newCat: string;
+  transactionId: number;
+  matchIds: number[];
+};
+
+// Callbacks passed via stable ref to memoized rows — avoids full-list re-renders on edit state change
+type RowCallbacks = {
+  startEdit: (id: number, field: NonNullable<EditState>["field"], value: string) => void;
+  setEditing: React.Dispatch<React.SetStateAction<EditState>>;
+  commitEdit: () => Promise<void>;
+  cancelEdit: () => void;
+  handleEditKeyDown: (e: React.KeyboardEvent) => void;
+  toggleOne: (id: number) => void;
+  refresh: () => void;
+  setRecatDialog: React.Dispatch<React.SetStateAction<RecatDialog | null>>;
+  transactions: Transaction[];
+};
+
 function formatDate(iso: string) {
   const [y, m, d] = iso.split("-");
   return `${d}.${m}.${y}`;
@@ -60,6 +83,269 @@ function buildCategoryPathMap(cats: FlatCat[]): Map<string, string> {
 const INPUT_CLS =
   "w-full rounded border border-zinc-300 bg-white px-2 py-0.5 text-sm text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200";
 
+// ── Memoized row — only re-renders when its own data or edit/select state changes ──────────────
+
+const TransactionRow = memo(function TransactionRow({
+  t,
+  isEditing,
+  editingField,
+  editingValue,
+  isSelected,
+  accounts,
+  popoverSections,
+  categoryPaths,
+  cbRef,
+}: {
+  t: Transaction;
+  isEditing: boolean;
+  editingField: NonNullable<EditState>["field"] | null;
+  editingValue: string;
+  isSelected: boolean;
+  accounts: Account[];
+  popoverSections: Section[];
+  categoryPaths: Map<string, string>;
+  cbRef: { current: RowCallbacks };
+}) {
+  const isEditingField = (field: NonNullable<EditState>["field"]) =>
+    isEditing && editingField === field;
+
+  return (
+    <div
+      className={`grid grid-cols-[2.5rem_5.5rem_2fr_1fr_1.5fr_1fr] items-center px-5 py-2.5 transition-colors ${
+        isSelected ? "bg-zinc-50 dark:bg-zinc-800/60" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/30"
+      }`}
+    >
+      {/* Checkbox */}
+      <input
+        type="checkbox"
+        checked={isSelected}
+        onChange={() => cbRef.current.toggleOne(t.id)}
+        className="h-4 w-4 rounded border-zinc-300 accent-zinc-800 dark:border-zinc-600 dark:accent-zinc-400"
+      />
+
+      {/* Date */}
+      <div className="pr-2">
+        {isEditingField("date") ? (
+          <input
+            type="date"
+            autoFocus
+            value={editingValue}
+            onChange={(e) =>
+              cbRef.current.setEditing((prev) => prev ? { ...prev, value: e.target.value } : null)
+            }
+            onBlur={() => cbRef.current.commitEdit()}
+            onKeyDown={cbRef.current.handleEditKeyDown}
+            className={INPUT_CLS}
+          />
+        ) : (
+          <span
+            onClick={() => cbRef.current.startEdit(t.id, "date", t.date)}
+            className="cursor-text text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+            title="Click to edit"
+          >
+            {formatDate(t.date)}
+          </span>
+        )}
+      </div>
+
+      {/* Description */}
+      <div className="min-w-0 pr-4">
+        {isEditingField("description") ? (
+          <input
+            type="text"
+            autoFocus
+            value={editingValue}
+            onChange={(e) =>
+              cbRef.current.setEditing((prev) => prev ? { ...prev, value: e.target.value } : null)
+            }
+            onBlur={() => cbRef.current.commitEdit()}
+            onKeyDown={cbRef.current.handleEditKeyDown}
+            className={INPUT_CLS}
+          />
+        ) : (
+          <div className="flex min-w-0 items-center gap-1.5">
+            {t.linked_transaction_id !== null && (
+              <span title="Linked transfer" className="shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                </svg>
+              </span>
+            )}
+            <span
+              onClick={() => cbRef.current.startEdit(t.id, "description", t.description)}
+              className="block cursor-text truncate text-sm text-zinc-800 hover:text-zinc-600 dark:text-zinc-200 dark:hover:text-zinc-400"
+              title={t.description}
+            >
+              {t.description}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Account */}
+      <div className="pr-2">
+        {isEditingField("account") ? (
+          <select
+            autoFocus
+            value={editingValue}
+            onChange={(e) => {
+              const val = e.target.value;
+              cbRef.current.setEditing(null);
+              fetch(`/api/transactions/${t.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ account_id: Number(val) }),
+              }).then(() => cbRef.current.refresh());
+            }}
+            onBlur={cbRef.current.cancelEdit}
+            onKeyDown={(e) => { if (e.key === "Escape") cbRef.current.cancelEdit(); }}
+            className={INPUT_CLS}
+          >
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        ) : (
+          <div
+            onClick={() => cbRef.current.startEdit(t.id, "account", String(t.account_id))}
+            className="flex min-w-0 cursor-pointer items-center gap-1.5"
+            title="Click to edit"
+          >
+            {t.account_color && (
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: t.account_color }} />
+            )}
+            <span className="truncate text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">
+              {t.account_name ?? "—"}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Category */}
+      <div className="relative min-w-0 pr-2">
+        {isEditingField("category") ? (
+          <SetCategoryPopover
+            direction="down"
+            sections={popoverSections}
+            transferAccounts={accounts}
+            onSelect={(cat) => {
+              cbRef.current.setEditing(null);
+              const { transactions, setRecatDialog, refresh } = cbRef.current;
+              if (t.needs_review && t.category) {
+                const matches = transactions.filter(
+                  (tx) => tx.needs_review && tx.category === t.category
+                );
+                if (matches.length > 1) {
+                  setRecatDialog({
+                    originalCat: t.category,
+                    newCat: cat,
+                    transactionId: t.id,
+                    matchIds: matches.map((tx) => tx.id),
+                  });
+                  return;
+                }
+              }
+              fetch(`/api/transactions/${t.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ category: cat }),
+              }).then(() => refresh());
+            }}
+            onClose={() => cbRef.current.cancelEdit()}
+          />
+        ) : t.needs_review && t.category ? (
+          <div
+            onClick={() => cbRef.current.startEdit(t.id, "category", t.category)}
+            className="flex min-w-0 cursor-pointer items-center gap-1.5"
+            title={`"${t.category}" was not found in your categories`}
+          >
+            <span className="truncate text-sm text-red-500 hover:underline dark:text-red-400">
+              {t.category}
+            </span>
+            <span className="shrink-0 rounded bg-red-100 px-1 py-0.5 text-xs font-medium text-red-600 dark:bg-red-900/30 dark:text-red-400">
+              not found
+            </span>
+          </div>
+        ) : (
+          <span
+            onClick={() => cbRef.current.startEdit(t.id, "category", t.category)}
+            className={`block cursor-pointer truncate text-sm hover:underline ${
+              t.category
+                ? "text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                : "text-amber-500 dark:text-amber-400"
+            }`}
+            title={(categoryPaths.get(t.category) ?? t.category) || "Uncategorised"}
+          >
+            {t.category ? (categoryPaths.get(t.category) ?? t.category) : "Uncategorised"}
+          </span>
+        )}
+      </div>
+
+      {/* Amount */}
+      <div className="flex items-center gap-1.5">
+        <button
+          title={t.reimbursable ? "Owed by parents — click to unmark" : "Mark as owed by parents"}
+          onClick={() =>
+            fetch(`/api/transactions/${t.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ reimbursable: !t.reimbursable }),
+            }).then(() => cbRef.current.refresh())
+          }
+          className={`shrink-0 rounded p-0.5 transition-colors ${
+            t.reimbursable
+              ? "text-orange-500 dark:text-orange-400"
+              : "text-zinc-200 hover:text-zinc-400 dark:text-zinc-700 dark:hover:text-zinc-500"
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        </button>
+        <div className="min-w-0 flex-1">
+          {isEditingField("amount") ? (
+            <input
+              type="number"
+              autoFocus
+              step="0.01"
+              value={editingValue}
+              onChange={(e) =>
+                cbRef.current.setEditing((prev) => prev ? { ...prev, value: e.target.value } : null)
+              }
+              onBlur={() => cbRef.current.commitEdit()}
+              onKeyDown={cbRef.current.handleEditKeyDown}
+              className={INPUT_CLS + " text-right"}
+            />
+          ) : (
+            <div
+              onClick={() => cbRef.current.startEdit(t.id, "amount", String(t.amount))}
+              className="cursor-text text-right hover:underline"
+              title="Click to edit"
+            >
+              <span className={`block text-sm font-medium tabular-nums ${t.amount >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-800 dark:text-zinc-200"}`}>
+                {t.account_currency && t.account_currency !== "CHF"
+                  ? formatCurrency(t.amount, t.account_currency)
+                  : formatCurrency(t.amount)}
+              </span>
+              {t.account_currency && t.account_currency !== "CHF" && (
+                <span className="block text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
+                  {`\u2248 ${formatCurrency(t.amount * t.exchange_rate, "CHF")}`}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts]         = useState<Account[]>([]);
@@ -74,9 +360,11 @@ export default function TransactionsPage() {
   const [editing, setEditing]           = useState<EditState>(null);
   const [sort, setSort]                 = useState<SortState>({ field: "date", dir: "desc" });
   const [categoryPaths, setCategoryPaths] = useState<Map<string, string>>(new Map());
+  const [popoverSections, setPopoverSections] = useState<Section[]>([]);
+  const [recatDialog, setRecatDialog] = useState<RecatDialog | null>(null);
   const barRef = useRef<HTMLDivElement>(null);
 
-  const uncategorisedCount = transactions.filter((t) => !t.category).length;
+  const uncategorisedCount = transactions.filter((t) => !t.category || t.needs_review).length;
   const allSelected  = transactions.length > 0 && selected.size === transactions.length;
   const someSelected = selected.size > 0 && !allSelected;
   const selectedTxs  = transactions.filter((t) => selected.has(t.id));
@@ -93,7 +381,8 @@ export default function TransactionsPage() {
     if (f.category)    params.set("category",    f.category);
     if (f.minAmount)   params.set("minAmount",   f.minAmount);
     if (f.maxAmount)   params.set("maxAmount",   f.maxAmount);
-    if (f.needsReview) params.set("needsReview", "true");
+    if (f.needsReview)  params.set("needsReview",  "true");
+    if (f.reimbursable) params.set("reimbursable", "true");
     params.set("sort", s.field);
     params.set("dir",  s.dir);
 
@@ -106,7 +395,7 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     fetch("/api/accounts").then((r) => r.json()).then((data) => {
-      setAccounts(Array.isArray(data) ? data.map((a: Account) => ({ id: a.id, name: a.name })) : []);
+      setAccounts(Array.isArray(data) ? data.map((a: Account) => ({ id: a.id, name: a.name, color: a.color })) : []);
     });
     fetch("/api/transactions").then((r) => r.json()).then((data: Transaction[]) => {
       const cats = [...new Set(data.filter((t) => t.category).map((t) => t.category))].sort();
@@ -114,6 +403,7 @@ export default function TransactionsPage() {
     });
     fetch("/api/categories").then((r) => r.json()).then((data: FlatCat[]) => {
       setCategoryPaths(buildCategoryPathMap(data));
+      setPopoverSections(buildSections(data));
     });
   }, []);
 
@@ -141,10 +431,9 @@ export default function TransactionsPage() {
     });
   }
 
-  // ── Inline editing ────────────────────────────────────────────────────────
+  // ── Inline editing ─────────────────────────────────────────────────────────
 
   function startEdit(id: number, field: NonNullable<EditState>["field"], value: string) {
-    // Commit any previous edit first
     const e = editing;
     if (e !== null && (e.id !== id || e.field !== field)) {
       void commitEdit();
@@ -158,8 +447,6 @@ export default function TransactionsPage() {
     const { id, field, original } = e;
     const value = overrideValue ?? e.value;
     setEditing(null);
-
-    // No change — skip the API call entirely
     if (value === original) return;
 
     const body: Record<string, string | number> = {};
@@ -182,7 +469,41 @@ export default function TransactionsPage() {
     if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
   }
 
-  // ── Bulk actions ──────────────────────────────────────────────────────────
+  // Stable ref for row callbacks — rows read cbRef.current at call time, never go stale
+  const cbRef = useRef<RowCallbacks>(null!);
+  cbRef.current = {
+    startEdit,
+    setEditing,
+    commitEdit,
+    cancelEdit,
+    handleEditKeyDown,
+    toggleOne,
+    refresh,
+    setRecatDialog,
+    transactions,
+  };
+
+  // ── Bulk actions ───────────────────────────────────────────────────────────
+
+  async function handleRecatDialog(all: boolean) {
+    if (!recatDialog) return;
+    const { newCat, transactionId, matchIds } = recatDialog;
+    setRecatDialog(null);
+    if (all) {
+      await fetch("/api/transactions/bulk", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: matchIds, category: newCat }),
+      });
+    } else {
+      await fetch(`/api/transactions/${transactionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ category: newCat }),
+      });
+    }
+    refresh();
+  }
 
   async function handleSetCategory(category: string) {
     setBulkWorking(true);
@@ -283,7 +604,7 @@ export default function TransactionsPage() {
         {/* Table */}
         <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
           {/* Header */}
-          <div className="grid grid-cols-[2.5rem_1fr_2fr_1fr_1.5fr_1fr] items-center border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
+          <div className="grid grid-cols-[2.5rem_5.5rem_2fr_1fr_1.5fr_1fr] items-center border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
             <input
               type="checkbox"
               checked={allSelected}
@@ -322,172 +643,20 @@ export default function TransactionsPage() {
             </div>
           ) : (
             <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {transactions.map((t) => {
-                const isEditing = (field: NonNullable<EditState>["field"]) =>
-                  editing !== null && editing.id === t.id && editing.field === field;
-
-                return (
-                  <div
-                    key={t.id}
-                    className={`grid grid-cols-[2.5rem_1fr_2fr_1fr_1.5fr_1fr] items-center px-5 py-2.5 transition-colors ${selected.has(t.id) ? "bg-zinc-50 dark:bg-zinc-800/60" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/30"}`}
-                  >
-                    {/* Checkbox — only interactive element for selection */}
-                    <input
-                      type="checkbox"
-                      checked={selected.has(t.id)}
-                      onChange={() => toggleOne(t.id)}
-                      className="h-4 w-4 rounded border-zinc-300 accent-zinc-800 dark:border-zinc-600 dark:accent-zinc-400"
-                    />
-
-                    {/* Date */}
-                    <div className="pr-2">
-                      {isEditing("date") ? (
-                        <input
-                          type="date"
-                          autoFocus
-                          value={editing!.value}
-                          onChange={(e) => setEditing({ ...editing!, value: e.target.value })}
-                          onBlur={() => commitEdit()}
-                          onKeyDown={handleEditKeyDown}
-                          className={INPUT_CLS}
-                        />
-                      ) : (
-                        <span
-                          onClick={() => startEdit(t.id, "date", t.date)}
-                          className="cursor-text text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
-                          title="Click to edit"
-                        >
-                          {formatDate(t.date)}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Description */}
-                    <div className="pr-4">
-                      {isEditing("description") ? (
-                        <input
-                          type="text"
-                          autoFocus
-                          value={editing!.value}
-                          onChange={(e) => setEditing({ ...editing!, value: e.target.value })}
-                          onBlur={() => commitEdit()}
-                          onKeyDown={handleEditKeyDown}
-                          className={INPUT_CLS}
-                        />
-                      ) : (
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          {t.linked_transaction_id !== null && (
-                            <span title="Linked transfer" className="shrink-0">
-                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                              </svg>
-                            </span>
-                          )}
-                          <span
-                            onClick={() => startEdit(t.id, "description", t.description)}
-                            className="block cursor-text truncate text-sm text-zinc-800 hover:text-zinc-600 dark:text-zinc-200 dark:hover:text-zinc-400"
-                            title={t.description}
-                          >
-                            {t.description}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Account */}
-                    <div className="pr-2">
-                      {isEditing("account") ? (
-                        <select
-                          autoFocus
-                          value={editing!.value}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setEditing(null);
-                            fetch(`/api/transactions/${t.id}`, {
-                              method: "PATCH",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ account_id: Number(val) }),
-                            }).then(() => refresh());
-                          }}
-                          onBlur={cancelEdit}
-                          onKeyDown={(e) => { if (e.key === "Escape") cancelEdit(); }}
-                          className={INPUT_CLS}
-                        >
-                          {accounts.map((a) => (
-                            <option key={a.id} value={a.id}>{a.name}</option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div
-                          onClick={() => startEdit(t.id, "account", String(t.account_id))}
-                          className="flex min-w-0 cursor-pointer items-center gap-1.5"
-                          title="Click to edit"
-                        >
-                          {t.account_color && (
-                            <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: t.account_color }} />
-                          )}
-                          <span className="truncate text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">
-                            {t.account_name ?? "—"}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Category */}
-                    <div className="relative min-w-0 pr-2">
-                      {isEditing("category") ? (
-                        <SetCategoryPopover
-                          direction="down"
-                          onSelect={(cat) => {
-                            setEditing(null);
-                            fetch(`/api/transactions/${t.id}`, {
-                              method: "PATCH",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ category: cat }),
-                            }).then(() => refresh());
-                          }}
-                          onClose={cancelEdit}
-                        />
-                      ) : (
-                        <span
-                          onClick={() => startEdit(t.id, "category", t.category)}
-                          className={`block cursor-pointer truncate text-sm hover:underline ${t.category ? "text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200" : "text-amber-500 dark:text-amber-400"}`}
-                          title={(categoryPaths.get(t.category) ?? t.category) || "Uncategorised"}
-                        >
-                          {t.category
-                            ? (categoryPaths.get(t.category) ?? t.category)
-                            : "Uncategorised"}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Amount */}
-                    <div>
-                      {isEditing("amount") ? (
-                        <input
-                          type="number"
-                          autoFocus
-                          step="0.01"
-                          value={editing!.value}
-                          onChange={(e) => setEditing({ ...editing!, value: e.target.value })}
-                          onBlur={() => commitEdit()}
-                          onKeyDown={handleEditKeyDown}
-                          className={INPUT_CLS + " text-right"}
-                        />
-                      ) : (
-                        <span
-                          onClick={() => startEdit(t.id, "amount", String(t.amount))}
-                          className={`block cursor-text text-right text-sm font-medium tabular-nums hover:underline ${t.amount >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-800 dark:text-zinc-200"}`}
-                          title="Click to edit"
-                        >
-                          {formatCurrency(t.amount)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+              {transactions.map((t) => (
+                <TransactionRow
+                  key={t.id}
+                  t={t}
+                  isEditing={editing !== null && editing.id === t.id}
+                  editingField={editing?.id === t.id ? editing.field : null}
+                  editingValue={editing?.id === t.id ? editing.value : ""}
+                  isSelected={selected.has(t.id)}
+                  accounts={accounts}
+                  popoverSections={popoverSections}
+                  categoryPaths={categoryPaths}
+                  cbRef={cbRef}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -516,6 +685,8 @@ export default function TransactionsPage() {
               </button>
               {showCatPopover && (
                 <SetCategoryPopover
+                  sections={popoverSections}
+                  transferAccounts={accounts}
                   onSelect={handleSetCategory}
                   onClose={() => setShowCatPopover(false)}
                 />
@@ -580,6 +751,40 @@ export default function TransactionsPage() {
 
       {showAdd    && <AddTransactionModal onClose={() => setShowAdd(false)}    onSaved={refresh} />}
       {showImport && <CsvImportModal      onClose={() => setShowImport(false)} onImported={refresh} />}
+
+      {recatDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="flex w-full max-w-sm flex-col rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">Recategorize all?</h2>
+            </div>
+            <div className="px-6 py-4">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                <span className="font-medium text-zinc-800 dark:text-zinc-200">{recatDialog.matchIds.length} transactions</span>
+                {" "}have the unrecognised category{" "}
+                <span className="font-mono text-xs font-medium text-red-600 dark:text-red-400">
+                  {recatDialog.originalCat}
+                </span>
+                . Do you want to recategorize all of them?
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-zinc-200 px-6 py-4 dark:border-zinc-800">
+              <button
+                onClick={() => handleRecatDialog(false)}
+                className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                Just this one
+              </button>
+              <button
+                onClick={() => handleRecatDialog(true)}
+                className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+              >
+                All {recatDialog.matchIds.length}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
