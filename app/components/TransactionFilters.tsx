@@ -9,6 +9,7 @@ export type Filters = {
   minAmount: string;
   maxAmount: string;
   needsReview: boolean;
+  reimbursable: boolean;
 };
 
 export const DEFAULT_FILTERS: Filters = {
@@ -20,6 +21,7 @@ export const DEFAULT_FILTERS: Filters = {
   minAmount: "",
   maxAmount: "",
   needsReview: false,
+  reimbursable: false,
 };
 
 type Account = { id: number; name: string };
@@ -56,7 +58,8 @@ export default function TransactionFilters({ filters, accounts, categories, onCh
     filters.category ||
     filters.minAmount ||
     filters.maxAmount ||
-    filters.needsReview;
+    filters.needsReview ||
+    filters.reimbursable;
 
   return (
     <div className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
@@ -164,6 +167,19 @@ export default function TransactionFilters({ filters, accounts, categories, onCh
             />
             <label htmlFor="needs-review" className="cursor-pointer whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-400">
               Needs review
+            </label>
+          </div>
+
+          <div className="flex items-center gap-2 pb-2.5">
+            <input
+              id="reimbursable"
+              type="checkbox"
+              checked={filters.reimbursable}
+              onChange={(e) => set("reimbursable", e.target.checked)}
+              className="h-4 w-4 rounded border-zinc-300 accent-zinc-800 dark:border-zinc-600 dark:accent-zinc-400"
+            />
+            <label htmlFor="reimbursable" className="cursor-pointer whitespace-nowrap text-sm text-zinc-600 dark:text-zinc-400">
+              Owed by parents
             </label>
           </div>
 
