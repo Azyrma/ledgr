@@ -4,6 +4,7 @@
 import csv
 import glob
 import os
+import re
 from datetime import datetime
 
 import openpyxl
@@ -63,7 +64,12 @@ def lookup_category(description):
 
 
 def write_output(name, rows, date_from, date_to):
-    """Write rows to a Moneydance-compatible CSV file."""
+    """Write rows to a Moneydance-compatible CSV file.
+
+    Each row may be (date, description, amount) or
+    (date, description, amount, category). If the 4th element is present it is
+    used as-is; otherwise the category is looked up from the description.
+    """
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     from_str = date_from.strftime("%d.%m.%Y")
@@ -72,12 +78,14 @@ def write_output(name, rows, date_from, date_to):
 
     with open(out_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        for date, description, amount in rows:
+        for row in rows:
+            date, description, amount = row[0], row[1], row[2]
+            category = row[3] if len(row) > 3 else lookup_category(description)
             writer.writerow([
                 date.strftime("%d.%m.%Y"),
                 description,
                 f"{amount:.2f}".replace(".", ","),
-                lookup_category(description),
+                category,
             ])
 
     print(f"  Wrote {len(rows)} transactions -> {out_path}")
@@ -255,6 +263,58 @@ def parse_handelsbanken_xlsx(path):
     return rows, date_from, date_to
 
 
+def parse_moneydance_csv(path):
+    """Parse a Moneydance CSV export.
+
+    Format:
+      - Line 1: "Transactions"
+      - Line 2: date range (ignored)
+      - Line 3: blank
+      - Line 4: header row starting with "Account,Date,Cheque#,..."
+      - Data rows: Account, Date (MM/DD/YYYY), Cheque#, Description,
+                   Category, C, Amount (e.g. "Fr. -1.80"), Balance
+      - Skip rows with empty Account or Description == "Beginning Balance"
+    """
+    rows = []
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        reader = csv.reader(f)
+        raw = list(reader)
+
+    header_idx = None
+    for i, row in enumerate(raw):
+        if row and row[0] == "Account" and len(row) > 2 and row[2] == "Cheque#":
+            header_idx = i
+            break
+
+    if header_idx is None:
+        print(f"  WARNING: could not find header in {path}")
+        return rows
+
+    for row in raw[header_idx + 1:]:
+        if not row or len(row) < 7:
+            continue
+        account = row[0].strip()
+        if not account:
+            continue
+        description = row[3].strip()
+        if description == "Beginning Balance":
+            continue
+        date_str = row[1].strip()
+        try:
+            date = datetime.strptime(date_str, "%m/%d/%Y").date()
+        except ValueError:
+            continue
+        amount_raw = re.sub(r'^[A-Za-z]+\.\s*', '', row[6].strip())
+        try:
+            amount = float(amount_raw)
+        except ValueError:
+            continue
+        category = row[4].strip()
+        rows.append((date, description, amount, category))
+
+    return rows
+
+
 def main():
     # --- PostFinance: account CSV + credit card CSV merged ---
     pf_files = glob.glob(os.path.join(INPUT_DIR, "export_transactions_*.csv"))
@@ -304,6 +364,23 @@ def main():
         write_output("handelsbanken", all_hb_rows, hb_from, hb_to)
     else:
         print("No Handelsbanken XLSX files found.")
+
+    # --- Moneydance CSV files ---
+    md_files = glob.glob(os.path.join(INPUT_DIR, "moneydance", "*.csv"))
+    if md_files:
+        for path in md_files:
+            print(f"Reading Moneydance: {path}")
+            rows = parse_moneydance_csv(path)
+            if not rows:
+                print(f"  No transactions found in {path}")
+                continue
+            md_from = min(r[0] for r in rows)
+            md_to = max(r[0] for r in rows)
+            rows_sorted = sorted(rows, key=lambda r: r[0], reverse=True)
+            name = os.path.splitext(os.path.basename(path))[0]
+            write_output(name, rows_sorted, md_from, md_to)
+    else:
+        print("No Moneydance CSV files found.")
 
 
 if __name__ == "__main__":
