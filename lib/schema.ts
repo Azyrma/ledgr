@@ -5,6 +5,7 @@ export const CREATE_TABLES = `
     type            TEXT    NOT NULL DEFAULT 'checking',
     currency        TEXT    NOT NULL DEFAULT 'CHF',
     color           TEXT    NOT NULL DEFAULT '#6366f1',
+    exchange_rate   REAL    NOT NULL DEFAULT 1.0,
     initial_balance REAL    NOT NULL DEFAULT 0,
     created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
   );
@@ -26,8 +27,15 @@ export const CREATE_TABLES = `
     amount       REAL    NOT NULL,
     category     TEXT    NOT NULL DEFAULT '',
     reimbursable INTEGER NOT NULL DEFAULT 0,
+    needs_review INTEGER NOT NULL DEFAULT 0,
     linked_transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
     created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS exchange_rate_cache (
+    currency    TEXT PRIMARY KEY,
+    rate_to_chf REAL NOT NULL,
+    fetched_at  TEXT NOT NULL
   );
 
   CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions(account_id);
@@ -54,4 +62,6 @@ export const MIGRATIONS = `
   UPDATE categories SET parent_id = NULL, color = '#3b82f6' WHERE id = 5;
   ALTER TABLE transactions ADD COLUMN category     TEXT    NOT NULL DEFAULT '';
   ALTER TABLE transactions ADD COLUMN linked_transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL;
+  ALTER TABLE transactions ADD COLUMN needs_review INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE accounts ADD COLUMN exchange_rate REAL NOT NULL DEFAULT 1.0;
 `;
