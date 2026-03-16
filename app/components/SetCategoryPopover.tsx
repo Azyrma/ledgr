@@ -3,18 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 import { buildCategoryNodeMap, getCategoryPath, type FlatCat } from "@/lib/categories";
 
-type Account = { id: number; name: string; color: string | null };
 
 type Option = { value: string; label: string; path: string; depth: number };
-type Section = { label: string; options: Option[] };
+export type Section = { label: string; options: Option[] };
+export type TransferAccount = { id: number; name: string; color: string | null };
 
 type Props = {
   onSelect: (category: string) => void;
   onClose: () => void;
   direction?: "up" | "down";
+  sections?: Section[];
+  transferAccounts?: TransferAccount[];
 };
 
-function buildSections(cats: FlatCat[]): Section[] {
+export function buildSections(cats: FlatCat[]): Section[] {
   const map = buildCategoryNodeMap(cats);
 
   function collect(id: number, depth = 0): Option[] {
@@ -38,20 +40,29 @@ function buildSections(cats: FlatCat[]): Section[] {
   ].filter((s) => s.options.length > 0);
 }
 
-export default function SetCategoryPopover({ onSelect, onClose, direction = "up" }: Props) {
-  const [sections, setSections] = useState<Section[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [search, setSearch]     = useState("");
+export default function SetCategoryPopover({ onSelect, onClose, direction = "up", sections: sectionsProp, transferAccounts: accountsProp }: Props) {
+  const [fetchedSections, setFetchedSections] = useState<Section[]>([]);
+  const [fetchedAccounts, setFetchedAccounts] = useState<TransferAccount[]>([]);
+  const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
+  // Use props directly when provided — avoids an extra render cycle on mount
+  const sections = sectionsProp ?? fetchedSections;
+  const accounts = accountsProp ?? fetchedAccounts;
+
   useEffect(() => {
+    if (sectionsProp) return;
     fetch("/api/categories")
       .then((r) => r.json())
-      .then((data: FlatCat[]) => setSections(buildSections(data)));
+      .then((data: FlatCat[]) => setFetchedSections(buildSections(data)));
+  }, [sectionsProp]);
+
+  useEffect(() => {
+    if (accountsProp) return;
     fetch("/api/accounts")
       .then((r) => r.json())
-      .then((data: Account[]) => setAccounts(Array.isArray(data) ? data : []));
-  }, []);
+      .then((data: TransferAccount[]) => setFetchedAccounts(Array.isArray(data) ? data : []));
+  }, [accountsProp]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
