@@ -48,3 +48,10 @@ next-env.d.ts
 
 .claude
 moneydance
+
+*.db
+*.db-wal
+*.db-shm
+
+csv-converter/__pycache__/
+csv-converter/*.pyc
