@@ -11,7 +11,8 @@ export function GET(request: NextRequest) {
     const category    = searchParams.get("category")    ?? "";
     const minAmount   = searchParams.get("minAmount")   ?? "";
     const maxAmount   = searchParams.get("maxAmount")   ?? "";
-    const needsReview = searchParams.get("needsReview") === "true";
+    const needsReview    = searchParams.get("needsReview")    === "true";
+    const reimbursable   = searchParams.get("reimbursable")   === "true";
     const sortField   = searchParams.get("sort") ?? "date";
     const sortDir     = searchParams.get("dir")  === "asc" ? "ASC" : "DESC";
 
@@ -31,7 +32,8 @@ export function GET(request: NextRequest) {
     if (category)    { conditions.push("t.category = ?");               params.push(category); }
     if (minAmount)   { conditions.push("t.amount >= ?");                params.push(Number(minAmount)); }
     if (maxAmount)   { conditions.push("t.amount <= ?");                params.push(Number(maxAmount)); }
-    if (needsReview) { conditions.push("(t.category IS NULL OR t.category = '')"); }
+    if (needsReview)  { conditions.push("(t.category IS NULL OR t.category = '' OR t.needs_review = 1)"); }
+    if (reimbursable) { conditions.push("t.reimbursable = 1"); }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
@@ -44,10 +46,13 @@ export function GET(request: NextRequest) {
         t.amount,
         t.category,
         t.reimbursable,
+        t.needs_review,
         t.account_id,
         t.linked_transaction_id,
-        a.name  AS account_name,
-        a.color AS account_color
+        a.name     AS account_name,
+        a.color    AS account_color,
+        a.currency AS account_currency,
+        a.exchange_rate
       FROM transactions t
       LEFT JOIN accounts a ON a.id = t.account_id
       ${where}

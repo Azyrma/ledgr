@@ -9,7 +9,7 @@ export async function PATCH(request: NextRequest) {
 
     const db = getDb();
     const placeholders = ids.map(() => "?").join(", ");
-    db.prepare(`UPDATE transactions SET category = ? WHERE id IN (${placeholders})`)
+    db.prepare(`UPDATE transactions SET category = ?, needs_review = 0 WHERE id IN (${placeholders})`)
       .run(category ?? "", ...ids);
 
     return NextResponse.json({ updated: ids.length });
