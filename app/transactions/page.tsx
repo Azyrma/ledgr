@@ -283,7 +283,7 @@ export default function TransactionsPage() {
         {/* Table */}
         <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
           {/* Header */}
-          <div className="grid grid-cols-[2.5rem_1fr_2fr_1fr_1fr_1fr] items-center border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
+          <div className="grid grid-cols-[2.5rem_1fr_2fr_1fr_1.5fr_1fr] items-center border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
             <input
               type="checkbox"
               checked={allSelected}
@@ -329,7 +329,7 @@ export default function TransactionsPage() {
                 return (
                   <div
                     key={t.id}
-                    className={`grid grid-cols-[2.5rem_1fr_2fr_1fr_1fr_1fr] items-center px-5 py-2.5 transition-colors ${selected.has(t.id) ? "bg-zinc-50 dark:bg-zinc-800/60" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/30"}`}
+                    className={`grid grid-cols-[2.5rem_1fr_2fr_1fr_1.5fr_1fr] items-center px-5 py-2.5 transition-colors ${selected.has(t.id) ? "bg-zinc-50 dark:bg-zinc-800/60" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/30"}`}
                   >
                     {/* Checkbox — only interactive element for selection */}
                     <input
@@ -421,7 +421,7 @@ export default function TransactionsPage() {
                       ) : (
                         <div
                           onClick={() => startEdit(t.id, "account", String(t.account_id))}
-                          className="flex cursor-pointer items-center gap-1.5"
+                          className="flex min-w-0 cursor-pointer items-center gap-1.5"
                           title="Click to edit"
                         >
                           {t.account_color && (
@@ -435,7 +435,7 @@ export default function TransactionsPage() {
                     </div>
 
                     {/* Category */}
-                    <div className="relative pr-2">
+                    <div className="relative min-w-0 pr-2">
                       {isEditing("category") ? (
                         <SetCategoryPopover
                           direction="down"
