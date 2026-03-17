@@ -882,6 +882,9 @@ export default function TransactionsPage() {
             <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 whitespace-nowrap">
               {selected.size} transaction{selected.size !== 1 ? "s" : ""} selected
             </span>
+            <span className="text-sm text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+              {formatCurrency(selectedTxs.reduce((sum, t) => sum + t.amount * t.exchange_rate, 0))}
+            </span>
             <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-700" />
 
             {/* Set category */}
