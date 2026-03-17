@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+
 export type Filters = {
   search: string;
   from: string;
@@ -46,8 +48,20 @@ const inputClass =
   "rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 placeholder-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:placeholder-zinc-600 dark:focus:ring-zinc-600";
 
 export default function TransactionFilters({ filters, accounts, categories, onChange }: Props) {
+  const [localSearch, setLocalSearch] = useState(filters.search);
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  // Sync external resets (e.g. "Clear" button)
+  useEffect(() => { setLocalSearch(filters.search); }, [filters.search]);
+
   function set<K extends keyof Filters>(key: K, value: Filters[K]) {
     onChange({ ...filters, [key]: value });
+  }
+
+  function handleSearch(val: string) {
+    setLocalSearch(val);
+    clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => set("search", val), 300);
   }
 
   const isActive =
@@ -75,8 +89,8 @@ export default function TransactionFilters({ filters, accounts, categories, onCh
               <input
                 type="text"
                 placeholder="Search descriptions…"
-                value={filters.search}
-                onChange={(e) => set("search", e.target.value)}
+                value={localSearch}
+                onChange={(e) => handleSearch(e.target.value)}
                 className={`${inputClass} w-full pl-9`}
               />
             </div>
