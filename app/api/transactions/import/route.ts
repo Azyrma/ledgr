@@ -34,20 +34,48 @@ export async function POST(request: NextRequest) {
     const nodeMap = buildCategoryNodeMap(cats);
     const validPaths = new Set<string>();
     nodeMap.forEach((cat, id) => { if (!cat.is_system) validPaths.add(getCategoryPath(id, nodeMap)); });
-    const insert = db.prepare(
-      "INSERT INTO transactions (account_id, date, description, amount, category, needs_review) VALUES (?, ?, ?, ?, ?, ?)"
+    // Duplicate check — match on date + description + amount within the same account
+    type ExistingRow = { date: string; description: string; amount: number };
+    const existing = db
+      .prepare("SELECT date, description, amount FROM transactions WHERE account_id = ?")
+      .all(accountId) as ExistingRow[];
+    const existingKeys = new Set(existing.map((r) => `${r.date}|${r.description}|${r.amount}`));
+
+    const duplicates = transactions.filter(
+      (t) => existingKeys.has(`${t.date}|${t.description}|${t.amount}`)
     );
 
-    const insertMany = db.transaction((rows: typeof transactions) => {
+    const skipDuplicates = formData.get("skipDuplicates") === "true";
+    const importAll      = formData.get("importAll")      === "true";
+
+    // First-pass check: return duplicates for the user to review
+    if (duplicates.length > 0 && !skipDuplicates && !importAll) {
+      return NextResponse.json({ duplicates }, { status: 409 });
+    }
+
+    const rowsToInsert = skipDuplicates
+      ? transactions.filter((t) => !existingKeys.has(`${t.date}|${t.description}|${t.amount}`))
+      : transactions;
+
+    const insert = db.prepare(
+      "INSERT INTO transactions (account_id, date, description, amount, category, needs_review, import_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
+    );
+    const insertImport = db.prepare(
+      "INSERT INTO imports (filename, account_id, count) VALUES (?, ?, ?)"
+    );
+
+    const insertMany = db.transaction((rows: typeof rowsToInsert) => {
+      const importRecord = insertImport.run(file.name, accountId, rows.length);
+      const importId = importRecord.lastInsertRowid;
       for (const t of rows) {
         const needsReview = t.category !== "" && !validPaths.has(t.category) ? 1 : 0;
-        insert.run(accountId, t.date, t.description, t.amount, t.category, needsReview);
+        insert.run(accountId, t.date, t.description, t.amount, t.category, needsReview, importId);
       }
     });
 
-    insertMany(transactions);
+    insertMany(rowsToInsert);
 
-    return NextResponse.json({ imported: transactions.length });
+    return NextResponse.json({ imported: rowsToInsert.length });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Import failed.";
     return NextResponse.json({ error: message }, { status: 500 });
