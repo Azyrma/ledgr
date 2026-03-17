@@ -465,6 +465,21 @@ const VirtualTransactionList = memo(function VirtualTransactionList({
   );
 });
 
+// ── Filter predicate — mirrors the API's WHERE conditions exactly ─────────────
+
+function matchesFilters(t: Transaction, f: Filters): boolean {
+  if (f.search     && !t.description.toLowerCase().includes(f.search.toLowerCase())) return false;
+  if (f.from       && t.date < f.from)                   return false;
+  if (f.to         && t.date > f.to)                     return false;
+  if (f.account    && t.account_id !== Number(f.account)) return false;
+  if (f.category   && t.category !== f.category)         return false;
+  if (f.minAmount  && t.amount < Number(f.minAmount))    return false;
+  if (f.maxAmount  && t.amount > Number(f.maxAmount))    return false;
+  if (f.needsReview  && t.category && t.needs_review !== 1) return false;
+  if (f.reimbursable && t.reimbursable !== 1)            return false;
+  return true;
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TransactionsPage() {
@@ -598,7 +613,9 @@ export default function TransactionsPage() {
   function cancelEdit() { setEditing(null); }
 
   function optimisticUpdate(id: number, changes: Partial<Transaction>) {
-    setTransactions(prev => prev.map(t => t.id === id ? { ...t, ...changes } : t));
+    setTransactions(prev =>
+      prev.map(t => t.id === id ? { ...t, ...changes } : t).filter(t => matchesFilters(t, filters))
+    );
   }
 
   function patchTransaction(id: number, body: Record<string, unknown>) {
@@ -646,7 +663,7 @@ export default function TransactionsPage() {
     setRecatDialog(null);
     if (all) {
       const idSet = new Set(matchIds);
-      setTransactions(prev => prev.map(t => idSet.has(t.id) ? { ...t, category: newCat, needs_review: 0 } : t));
+      setTransactions(prev => prev.map(t => idSet.has(t.id) ? { ...t, category: newCat, needs_review: 0 } : t).filter(t => matchesFilters(t, filters)));
       fetch("/api/transactions/bulk", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -680,7 +697,7 @@ export default function TransactionsPage() {
   function handleSetCategory(category: string) {
     setShowCatPopover(false);
     const ids = new Set(selected);
-    setTransactions(prev => prev.map(t => ids.has(t.id) ? { ...t, category, needs_review: 0 } : t));
+    setTransactions(prev => prev.map(t => ids.has(t.id) ? { ...t, category, needs_review: 0 } : t).filter(t => matchesFilters(t, filters)));
     setSelected(new Set());
     fetch("/api/transactions/bulk", {
       method: "PATCH",
