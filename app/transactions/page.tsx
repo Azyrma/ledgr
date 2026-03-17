@@ -362,8 +362,14 @@ const CategoryPopoverPortal = memo(function CategoryPopoverPortal({
 
   if (!target) return null;
 
+  // Flip above if less than 300px of space below the click target
+  const spaceBelow = window.innerHeight - target.rect.bottom;
+  const top = spaceBelow < 300
+    ? Math.max(4, target.rect.top - 300)
+    : target.rect.bottom + 4;
+
   return (
-    <div className="fixed z-50" style={{ top: target.rect.bottom + 4, left: target.rect.left }}>
+    <div className="fixed z-50" style={{ top, left: target.rect.left }}>
       <SetCategoryPopover
         direction="down"
         sections={sections}
