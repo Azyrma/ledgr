@@ -3,16 +3,13 @@
 import { useState } from "react";
 
 export const ACCOUNT_COLORS = [
-  { label: "Indigo",  value: "#6366f1" },
-  { label: "Emerald", value: "#10b981" },
-  { label: "Amber",   value: "#f59e0b" },
-  { label: "Red",     value: "#ef4444" },
-  { label: "Blue",    value: "#3b82f6" },
-  { label: "Pink",    value: "#ec4899" },
-  { label: "Teal",    value: "#14b8a6" },
-  { label: "Orange",  value: "#f97316" },
-  { label: "Purple",  value: "#8b5cf6" },
-  { label: "Lime",    value: "#84cc16" },
+  { label: "PostFinance",   value: "#FFCC00" },
+  { label: "ZKB",           value: "#054696" },
+  { label: "Wise",          value: "#9FE870" },
+  { label: "Handelsbanken", value: "#1B3F6A" },
+  { label: "Swissquote",    value: "#FA5B35" },
+  { label: "Schwab",        value: "#009CDB" },
+  { label: "Avanza",        value: "#00C281" },
 ];
 
 export const ACCOUNT_TYPES = [
@@ -60,7 +57,7 @@ export default function AccountModal({ initial, onClose, onSaved }: Props) {
     name:            initial?.name            ?? "",
     type:            initial?.type            ?? "checking",
     currency:        initial?.currency        ?? "CHF",
-    color:           initial?.color           ?? "#6366f1",
+    color:           initial?.color           ?? "#FFCC00",
     initial_balance: initial?.initial_balance ?? 0,
     exchange_rate:   initial?.exchange_rate   ?? 1.0,
   });
