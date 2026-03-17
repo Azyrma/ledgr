@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { detectBankType, BANK_LABELS, type BankType } from "@/lib/parsers";
+import { formatCurrency } from "@/lib/utils";
 
 type Account = { id: number; name: string; type: string };
-type Step = "select" | "confirm" | "importing" | "done" | "error";
+type Step = "select" | "confirm" | "duplicates" | "importing" | "done" | "error";
+
+type DuplicateRow = { date: string; description: string; amount: number; category: string };
 
 type Props = {
   onClose: () => void;
@@ -19,21 +22,24 @@ const BANK_ICONS: Record<BankType, string> = {
   "unknown":        "❓",
 };
 
+function formatDate(iso: string) {
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
+}
+
 export default function CsvImportModal({ onClose, onImported }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState<Step>("select");
-  const [file, setFile] = useState<File | null>(null);
-  const [bankType, setBankType] = useState<BankType>("unknown");
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [accountId, setAccountId] = useState<number | "">("");
-  const [errorMsg, setErrorMsg] = useState("");
+  const [step, setStep]               = useState<Step>("select");
+  const [file, setFile]               = useState<File | null>(null);
+  const [bankType, setBankType]       = useState<BankType>("unknown");
+  const [accounts, setAccounts]       = useState<Account[]>([]);
+  const [accountId, setAccountId]     = useState<number | "">("");
+  const [errorMsg, setErrorMsg]       = useState("");
   const [importedCount, setImportedCount] = useState(0);
+  const [duplicates, setDuplicates]   = useState<DuplicateRow[]>([]);
 
   useEffect(() => {
-    fetch("/api/accounts")
-      .then((r) => r.json())
-      .then(setAccounts)
-      .catch(() => {});
+    fetch("/api/accounts").then((r) => r.json()).then(setAccounts).catch(() => {});
   }, []);
 
   async function handleFile(f: File) {
@@ -55,17 +61,25 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
     if (f) handleFile(f);
   }
 
-  async function handleImport() {
+  async function submitImport(extra: Record<string, string> = {}) {
     if (!file || !accountId) return;
     setStep("importing");
 
     const formData = new FormData();
     formData.append("file", file);
     formData.append("accountId", String(accountId));
+    for (const [k, v] of Object.entries(extra)) formData.append(k, v);
 
     try {
       const res = await fetch("/api/transactions/import", { method: "POST", body: formData });
       const data = await res.json();
+
+      if (res.status === 409 && data.duplicates) {
+        setDuplicates(data.duplicates);
+        setStep("duplicates");
+        return;
+      }
+
       if (!res.ok) throw new Error(data.error ?? "Import failed.");
       setImportedCount(data.imported);
       setStep("done");
@@ -82,6 +96,7 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
     setBankType("unknown");
     setErrorMsg("");
     setAccountId("");
+    setDuplicates([]);
   }
 
   return (
@@ -144,7 +159,6 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
           {/* Step: confirm */}
           {step === "confirm" && file && (
             <div className="flex flex-col gap-5">
-              {/* File info */}
               <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800">
                 <span className="text-2xl">{BANK_ICONS[bankType]}</span>
                 <div>
@@ -159,7 +173,6 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
                 </button>
               </div>
 
-              {/* Account selector */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                   Import to account
@@ -184,6 +197,38 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
                     ))}
                   </select>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Step: duplicates */}
+          {step === "duplicates" && (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800/50 dark:bg-amber-900/20">
+                <svg xmlns="http://www.w3.org/2000/svg" className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <p className="text-sm text-amber-800 dark:text-amber-300">
+                  <span className="font-semibold">{duplicates.length} transaction{duplicates.length !== 1 ? "s" : ""} already exist</span>
+                  {" "}with the same date, description, and amount.
+                </p>
+              </div>
+
+              <div className="max-h-60 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
+                <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                  {duplicates.map((d, i) => (
+                    <div key={i} className="flex items-center justify-between px-4 py-2.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm text-zinc-800 dark:text-zinc-200">{d.description}</p>
+                        <p className="text-xs text-zinc-400 dark:text-zinc-500">{formatDate(d.date)}</p>
+                      </div>
+                      <span className={`ml-3 shrink-0 text-sm font-medium tabular-nums ${d.amount >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-700 dark:text-zinc-300"}`}>
+                        {formatCurrency(d.amount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -220,6 +265,21 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
             <button onClick={onClose} className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200">
               Close
             </button>
+          ) : step === "duplicates" ? (
+            <>
+              <button
+                onClick={() => submitImport({ skipDuplicates: "true" })}
+                className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                Skip {duplicates.length} duplicate{duplicates.length !== 1 ? "s" : ""}
+              </button>
+              <button
+                onClick={() => submitImport({ importAll: "true" })}
+                className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+              >
+                Import all
+              </button>
+            </>
           ) : (
             <>
               <button
@@ -231,7 +291,7 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
               </button>
               {step === "confirm" && (
                 <button
-                  onClick={handleImport}
+                  onClick={() => submitImport()}
                   disabled={!accountId}
                   className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
                 >
