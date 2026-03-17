@@ -8,12 +8,15 @@ export type DateRange = {
 };
 
 export const DATE_RANGES: DateRange[] = [
-  { label: "Today", value: "today" },
-  { label: "Last 7 days", value: "7d" },
-  { label: "Last 30 days", value: "30d" },
-  { label: "Last 3 months", value: "3m" },
-  { label: "Last 12 months", value: "12m" },
-  { label: "All time", value: "all" },
+  { label: "This month",      value: "mtd"       },
+  { label: "Last month",      value: "1month"    },
+  { label: "Last 2 months",   value: "2month"    },
+  { label: "Last 3 months",   value: "3month"    },
+  { label: "Last 6 months",   value: "6month"    },
+  { label: "Last 12 months",  value: "12m"       },
+  { label: "Year to date",    value: "ytd"       },
+  { label: "Last year",       value: "lastyear"  },
+  { label: "All time",        value: "all"       },
 ];
 
 type Props = {
