@@ -6,7 +6,7 @@ export const ACCOUNT_COLORS = [
   { label: "PostFinance",   value: "#FFCC00" },
   { label: "Navy",          value: "#054696" },
   { label: "Lime",          value: "#9FE870" },
-  { label: "Handelsbanken", value: "#1B3F6A" },
+  { label: "Handelsbanken", value: "#015FA5" },
   { label: "Coral",         value: "#FA5B35" },
   { label: "Sky",           value: "#009CDB" },
   { label: "Avanza",        value: "#00C281" },
