@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, memo } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import CsvImportModal from "../components/CsvImportModal";
 import AddTransactionModal from "../components/AddTransactionModal";
 import TransactionFilters, { DEFAULT_FILTERS, type Filters } from "../components/TransactionFilters";
@@ -24,7 +25,7 @@ type Transaction = {
   linked_transaction_id: number | null;
 };
 
-type Account = { id: number; name: string; color: string | null };
+type Account = { id: number; name: string; color: string | null; currency: string; exchange_rate: number };
 
 type SortState = {
   field: "date" | "description" | "account" | "category" | "amount";
@@ -46,12 +47,27 @@ type EditState = {
   original: string;
 } | null;
 
+type LatestImport = {
+  id: number;
+  filename: string;
+  account_name: string;
+  count: number;
+  imported_at: string;
+} | null;
+
 type RecatDialog = {
   originalCat: string;
   newCat: string;
   transactionId: number;
   matchIds: number[];
 };
+
+type CatPopoverTarget = {
+  id: number;
+  category: string;
+  needs_review: number;
+  rect: DOMRect;
+} | null;
 
 // Callbacks passed via stable ref to memoized rows — avoids full-list re-renders on edit state change
 type RowCallbacks = {
@@ -64,6 +80,9 @@ type RowCallbacks = {
   refresh: () => void;
   setRecatDialog: React.Dispatch<React.SetStateAction<RecatDialog | null>>;
   transactions: Transaction[];
+  optimisticUpdate: (id: number, changes: Partial<Transaction>) => void;
+  patchTransaction: (id: number, body: Record<string, unknown>) => void;
+  openCategoryPopover: (id: number, category: string, needsReview: number, rect: DOMRect) => void;
 };
 
 function formatDate(iso: string) {
@@ -92,7 +111,6 @@ const TransactionRow = memo(function TransactionRow({
   editingValue,
   isSelected,
   accounts,
-  popoverSections,
   categoryPaths,
   cbRef,
 }: {
@@ -102,7 +120,6 @@ const TransactionRow = memo(function TransactionRow({
   editingValue: string;
   isSelected: boolean;
   accounts: Account[];
-  popoverSections: Section[];
   categoryPaths: Map<string, string>;
   cbRef: { current: RowCallbacks };
 }) {
@@ -190,13 +207,19 @@ const TransactionRow = memo(function TransactionRow({
             autoFocus
             value={editingValue}
             onChange={(e) => {
-              const val = e.target.value;
+              const val = Number(e.target.value);
+              const acc = accounts.find(a => a.id === val);
               cbRef.current.setEditing(null);
-              fetch(`/api/transactions/${t.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ account_id: Number(val) }),
-              }).then(() => cbRef.current.refresh());
+              if (acc) {
+                cbRef.current.optimisticUpdate(t.id, {
+                  account_id: val,
+                  account_name: acc.name,
+                  account_color: acc.color ?? "",
+                  account_currency: acc.currency,
+                  exchange_rate: acc.exchange_rate,
+                });
+              }
+              cbRef.current.patchTransaction(t.id, { account_id: val });
             }}
             onBlur={cbRef.current.cancelEdit}
             onKeyDown={(e) => { if (e.key === "Escape") cbRef.current.cancelEdit(); }}
@@ -222,41 +245,11 @@ const TransactionRow = memo(function TransactionRow({
         )}
       </div>
 
-      {/* Category */}
+      {/* Category — popover rendered at page level to avoid row re-renders */}
       <div className="relative min-w-0 pr-2">
-        {isEditingField("category") ? (
-          <SetCategoryPopover
-            direction="down"
-            sections={popoverSections}
-            transferAccounts={accounts}
-            onSelect={(cat) => {
-              cbRef.current.setEditing(null);
-              const { transactions, setRecatDialog, refresh } = cbRef.current;
-              if (t.needs_review && t.category) {
-                const matches = transactions.filter(
-                  (tx) => tx.needs_review && tx.category === t.category
-                );
-                if (matches.length > 1) {
-                  setRecatDialog({
-                    originalCat: t.category,
-                    newCat: cat,
-                    transactionId: t.id,
-                    matchIds: matches.map((tx) => tx.id),
-                  });
-                  return;
-                }
-              }
-              fetch(`/api/transactions/${t.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ category: cat }),
-              }).then(() => refresh());
-            }}
-            onClose={() => cbRef.current.cancelEdit()}
-          />
-        ) : t.needs_review && t.category ? (
+        {t.needs_review && t.category ? (
           <div
-            onClick={() => cbRef.current.startEdit(t.id, "category", t.category)}
+            onClick={(e) => cbRef.current.openCategoryPopover(t.id, t.category, t.needs_review, (e.currentTarget as HTMLElement).getBoundingClientRect())}
             className="flex min-w-0 cursor-pointer items-center gap-1.5"
             title={`"${t.category}" was not found in your categories`}
           >
@@ -269,7 +262,7 @@ const TransactionRow = memo(function TransactionRow({
           </div>
         ) : (
           <span
-            onClick={() => cbRef.current.startEdit(t.id, "category", t.category)}
+            onClick={(e) => cbRef.current.openCategoryPopover(t.id, t.category, t.needs_review, (e.currentTarget as HTMLElement).getBoundingClientRect())}
             className={`block cursor-pointer truncate text-sm hover:underline ${
               t.category
                 ? "text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
@@ -286,13 +279,10 @@ const TransactionRow = memo(function TransactionRow({
       <div className="flex items-center gap-1.5">
         <button
           title={t.reimbursable ? "Owed by parents — click to unmark" : "Mark as owed by parents"}
-          onClick={() =>
-            fetch(`/api/transactions/${t.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ reimbursable: !t.reimbursable }),
-            }).then(() => cbRef.current.refresh())
-          }
+          onClick={() => {
+            cbRef.current.optimisticUpdate(t.id, { reimbursable: t.reimbursable ? 0 : 1 });
+            cbRef.current.patchTransaction(t.id, { reimbursable: !t.reimbursable });
+          }}
           className={`shrink-0 rounded p-0.5 transition-colors ${
             t.reimbursable
               ? "text-orange-500 dark:text-orange-400"
@@ -344,6 +334,131 @@ const TransactionRow = memo(function TransactionRow({
   );
 });
 
+// ── Isolated popover — has its own state so opening never re-renders the parent ──────────────
+
+type CatPortalHandle = { open: (t: NonNullable<CatPopoverTarget>) => void; close: () => void };
+
+const CategoryPopoverPortal = memo(function CategoryPopoverPortal({
+  handleRef,
+  sections,
+  accounts,
+  cbRef,
+}: {
+  handleRef: React.MutableRefObject<CatPortalHandle | null>;
+  sections: Section[];
+  accounts: Account[];
+  cbRef: { current: RowCallbacks };
+}) {
+  const [target, setTarget] = useState<CatPopoverTarget>(null);
+  handleRef.current = { open: setTarget, close: () => setTarget(null) };
+
+  // Close on scroll since fixed position becomes stale
+  useEffect(() => {
+    if (!target) return;
+    const onScroll = () => setTarget(null);
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
+  }, [target]);
+
+  if (!target) return null;
+
+  return (
+    <div className="fixed z-50" style={{ top: target.rect.bottom + 4, left: target.rect.left }}>
+      <SetCategoryPopover
+        direction="down"
+        sections={sections}
+        transferAccounts={accounts}
+        onSelect={(cat) => {
+          setTarget(null);
+          const { transactions, setRecatDialog, optimisticUpdate, patchTransaction } = cbRef.current;
+          if (target.needs_review && target.category) {
+            const matches = transactions.filter(
+              (tx) => tx.needs_review && tx.category === target.category
+            );
+            if (matches.length > 1) {
+              setRecatDialog({
+                originalCat: target.category,
+                newCat: cat,
+                transactionId: target.id,
+                matchIds: matches.map((tx) => tx.id),
+              });
+              return;
+            }
+          }
+          optimisticUpdate(target.id, { category: cat, needs_review: 0 });
+          patchTransaction(target.id, { category: cat });
+        }}
+        onClose={() => setTarget(null)}
+      />
+    </div>
+  );
+});
+
+// ── Virtualized transaction list — only renders visible rows ──────────────────
+
+const ROW_HEIGHT = 45;
+
+const VirtualTransactionList = memo(function VirtualTransactionList({
+  transactions,
+  editing,
+  selected,
+  accounts,
+  categoryPaths,
+  cbRef,
+}: {
+  transactions: Transaction[];
+  editing: EditState;
+  selected: Set<number>;
+  accounts: Account[];
+  categoryPaths: Map<string, string>;
+  cbRef: { current: RowCallbacks };
+}) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: transactions.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 10,
+  });
+
+  return (
+    <div ref={parentRef} className="min-h-0 flex-1 overflow-y-auto">
+      <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+        {virtualizer.getVirtualItems().map((vRow) => {
+          const t = transactions[vRow.index];
+          return (
+            <div
+              key={t.id}
+              data-index={vRow.index}
+              ref={virtualizer.measureElement}
+              className="border-b border-zinc-100 dark:border-zinc-800"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                transform: `translateY(${vRow.start}px)`,
+              }}
+            >
+              <TransactionRow
+                t={t}
+                isEditing={editing !== null && editing.id === t.id}
+                editingField={editing?.id === t.id ? editing.field : null}
+                editingValue={editing?.id === t.id ? editing.value : ""}
+                isSelected={selected.has(t.id)}
+                accounts={accounts}
+                categoryPaths={categoryPaths}
+                cbRef={cbRef}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+});
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function TransactionsPage() {
@@ -362,6 +477,9 @@ export default function TransactionsPage() {
   const [categoryPaths, setCategoryPaths] = useState<Map<string, string>>(new Map());
   const [popoverSections, setPopoverSections] = useState<Section[]>([]);
   const [recatDialog, setRecatDialog] = useState<RecatDialog | null>(null);
+  const [latestImport, setLatestImport] = useState<LatestImport>(null);
+  const [showUndoConfirm, setShowUndoConfirm] = useState(false);
+  const catPortalRef = useRef<CatPortalHandle>(null);
   const barRef = useRef<HTMLDivElement>(null);
 
   const uncategorisedCount = transactions.filter((t) => !t.category || t.needs_review).length;
@@ -395,16 +513,19 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     fetch("/api/accounts").then((r) => r.json()).then((data) => {
-      setAccounts(Array.isArray(data) ? data.map((a: Account) => ({ id: a.id, name: a.name, color: a.color })) : []);
+      setAccounts(Array.isArray(data) ? data.map((a: Record<string, unknown>) => ({
+        id: a.id as number, name: a.name as string, color: (a.color as string) ?? null,
+        currency: (a.currency as string) ?? "CHF", exchange_rate: (a.exchange_rate as number) ?? 1.0,
+      })) : []);
     });
-    fetch("/api/transactions").then((r) => r.json()).then((data: Transaction[]) => {
-      const cats = [...new Set(data.filter((t) => t.category).map((t) => t.category))].sort();
-      setCategories(cats);
+    fetch("/api/transactions/categories").then((r) => r.json()).then((data: string[]) => {
+      setCategories(Array.isArray(data) ? data : []);
     });
     fetch("/api/categories").then((r) => r.json()).then((data: FlatCat[]) => {
       setCategoryPaths(buildCategoryPathMap(data));
       setPopoverSections(buildSections(data));
     });
+    fetch("/api/imports").then((r) => r.json()).then(setLatestImport);
   }, []);
 
   useEffect(() => { fetchTransactions(filters, sort); }, [filters, sort, fetchTransactions]);
@@ -449,24 +570,49 @@ export default function TransactionsPage() {
     setEditing(null);
     if (value === original) return;
 
+    // Optimistic local update — no network wait
+    const changes: Partial<Transaction> = {};
+    if (field === "date")             changes.date = value;
+    else if (field === "description") changes.description = value;
+    else if (field === "amount")      changes.amount = Number(value);
+    optimisticUpdate(id, changes);
+
     const body: Record<string, string | number> = {};
     if (field === "account")     body.account_id = Number(value);
     else if (field === "amount") body.amount     = Number(value);
     else                         body[field]     = value;
 
-    await fetch(`/api/transactions/${id}`, {
+    fetch(`/api/transactions/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    });
-    refresh();
+    }).catch(() => refresh());
   }
 
   function cancelEdit() { setEditing(null); }
 
+  function optimisticUpdate(id: number, changes: Partial<Transaction>) {
+    setTransactions(prev => prev.map(t => t.id === id ? { ...t, ...changes } : t));
+  }
+
+  function patchTransaction(id: number, body: Record<string, unknown>) {
+    fetch(`/api/transactions/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).catch(() => refresh());
+  }
+
   function handleEditKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter")  { e.preventDefault(); commitEdit(); }
     if (e.key === "Escape") { e.preventDefault(); cancelEdit(); }
+  }
+
+  function openCategoryPopover(id: number, category: string, needsReview: number, rect: DOMRect) {
+    // Commit any pending inline edit first
+    if (editing !== null) void commitEdit();
+    // Open via ref — triggers state change only in the portal component, not the parent
+    catPortalRef.current?.open({ id, category, needs_review: needsReview, rect });
   }
 
   // Stable ref for row callbacks — rows read cbRef.current at call time, never go stale
@@ -481,40 +627,60 @@ export default function TransactionsPage() {
     refresh,
     setRecatDialog,
     transactions,
+    optimisticUpdate,
+    patchTransaction,
+    openCategoryPopover,
   };
 
   // ── Bulk actions ───────────────────────────────────────────────────────────
 
-  async function handleRecatDialog(all: boolean) {
+  function handleRecatDialog(all: boolean) {
     if (!recatDialog) return;
     const { newCat, transactionId, matchIds } = recatDialog;
     setRecatDialog(null);
     if (all) {
-      await fetch("/api/transactions/bulk", {
+      const idSet = new Set(matchIds);
+      setTransactions(prev => prev.map(t => idSet.has(t.id) ? { ...t, category: newCat, needs_review: 0 } : t));
+      fetch("/api/transactions/bulk", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: matchIds, category: newCat }),
-      });
+      }).catch(() => refresh());
     } else {
-      await fetch(`/api/transactions/${transactionId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ category: newCat }),
-      });
+      optimisticUpdate(transactionId, { category: newCat, needs_review: 0 });
+      patchTransaction(transactionId, { category: newCat });
     }
+  }
+
+  async function handleUndoImport() {
+    if (!latestImport) return;
+    await fetch(`/api/imports?id=${latestImport.id}`, { method: "DELETE" });
+    setLatestImport(null);
+    setShowUndoConfirm(false);
     refresh();
   }
 
-  async function handleSetCategory(category: string) {
-    setBulkWorking(true);
-    setShowCatPopover(false);
-    await fetch("/api/transactions/bulk", {
+  function handleMarkAllReimbursable() {
+    const ids = transactions.map((t) => t.id);
+    if (ids.length === 0) return;
+    setTransactions(prev => prev.map(t => ({ ...t, reimbursable: 1 })));
+    fetch("/api/transactions/bulk", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: [...selected], category }),
-    });
-    setBulkWorking(false);
-    refresh();
+      body: JSON.stringify({ ids, reimbursable: true }),
+    }).catch(() => refresh());
+  }
+
+  function handleSetCategory(category: string) {
+    setShowCatPopover(false);
+    const ids = new Set(selected);
+    setTransactions(prev => prev.map(t => ids.has(t.id) ? { ...t, category, needs_review: 0 } : t));
+    setSelected(new Set());
+    fetch("/api/transactions/bulk", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [...ids], category }),
+    }).catch(() => refresh());
   }
 
   async function handleLink() {
@@ -539,15 +705,15 @@ export default function TransactionsPage() {
     refresh();
   }
 
-  async function handleBulkDelete() {
-    setBulkWorking(true);
-    await fetch("/api/transactions/bulk", {
+  function handleBulkDelete() {
+    const ids = new Set(selected);
+    setTransactions(prev => prev.filter(t => !ids.has(t.id)));
+    setSelected(new Set());
+    fetch("/api/transactions/bulk", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids: [...selected] }),
-    });
-    setBulkWorking(false);
-    refresh();
+      body: JSON.stringify({ ids: [...ids] }),
+    }).catch(() => refresh());
   }
 
   return (
@@ -556,6 +722,17 @@ export default function TransactionsPage() {
       <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-8 py-4 dark:border-zinc-800 dark:bg-zinc-900">
         <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Transactions</h1>
         <div className="flex items-center gap-2">
+          {latestImport && (
+            <button
+              onClick={() => setShowUndoConfirm(true)}
+              className="flex items-center gap-2 rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-500 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-red-800/50 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 7v6h6" /><path d="M3 13C5 7 10 3 16 3a9 9 0 0 1 0 18H3" />
+              </svg>
+              Undo import
+            </button>
+          )}
           <button onClick={() => setShowAdd(true)} className="flex w-40 items-center justify-center gap-2 rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
@@ -573,7 +750,7 @@ export default function TransactionsPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-8 space-y-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 p-8">
         {/* Review banner */}
         {uncategorisedCount > 0 && (
           <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-5 py-4 dark:border-amber-800/60 dark:bg-amber-900/20">
@@ -601,8 +778,29 @@ export default function TransactionsPage() {
         {/* Filters */}
         <TransactionFilters filters={filters} accounts={accounts} categories={categories} onChange={setFilters} />
 
+        {/* Batch actions toolbar */}
+        {!loading && transactions.length > 0 && (
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs text-zinc-400 dark:text-zinc-500">
+              {transactions.length} transaction{transactions.length !== 1 ? "s" : ""}
+            </span>
+            <button
+              onClick={handleMarkAllReimbursable}
+              className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              Mark all {transactions.length} as owed by parents
+            </button>
+          </div>
+        )}
+
         {/* Table */}
-        <div className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
           {/* Header */}
           <div className="grid grid-cols-[2.5rem_5.5rem_2fr_1fr_1.5fr_1fr] items-center border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
             <input
@@ -642,22 +840,14 @@ export default function TransactionsPage() {
               <p className="text-xs text-zinc-300 dark:text-zinc-600">Try adjusting your filters or import a bank export</p>
             </div>
           ) : (
-            <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-              {transactions.map((t) => (
-                <TransactionRow
-                  key={t.id}
-                  t={t}
-                  isEditing={editing !== null && editing.id === t.id}
-                  editingField={editing?.id === t.id ? editing.field : null}
-                  editingValue={editing?.id === t.id ? editing.value : ""}
-                  isSelected={selected.has(t.id)}
-                  accounts={accounts}
-                  popoverSections={popoverSections}
-                  categoryPaths={categoryPaths}
-                  cbRef={cbRef}
-                />
-              ))}
-            </div>
+            <VirtualTransactionList
+              transactions={transactions}
+              editing={editing}
+              selected={selected}
+              accounts={accounts}
+              categoryPaths={categoryPaths}
+              cbRef={cbRef}
+            />
           )}
         </div>
       </div>
@@ -749,8 +939,53 @@ export default function TransactionsPage() {
         </div>
       )}
 
+      {/* Isolated category popover — manages its own state, never re-renders parent */}
+      <CategoryPopoverPortal
+        handleRef={catPortalRef}
+        sections={popoverSections}
+        accounts={accounts}
+        cbRef={cbRef}
+      />
+
       {showAdd    && <AddTransactionModal onClose={() => setShowAdd(false)}    onSaved={refresh} />}
-      {showImport && <CsvImportModal      onClose={() => setShowImport(false)} onImported={refresh} />}
+      {showImport && <CsvImportModal      onClose={() => setShowImport(false)} onImported={() => {
+        refresh();
+        fetch("/api/imports").then((r) => r.json()).then(setLatestImport);
+      }} />}
+
+      {showUndoConfirm && latestImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="flex w-full max-w-sm flex-col rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
+              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">Undo import?</h2>
+            </div>
+            <div className="px-6 py-4">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                This will permanently delete{" "}
+                <span className="font-medium text-zinc-800 dark:text-zinc-200">{latestImport.count} transactions</span>
+                {" "}from{" "}
+                <span className="font-medium text-zinc-800 dark:text-zinc-200">{latestImport.account_name}</span>
+                {" "}imported from{" "}
+                <span className="font-mono text-xs text-zinc-600 dark:text-zinc-400">{latestImport.filename}</span>.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 border-t border-zinc-200 px-6 py-4 dark:border-zinc-800">
+              <button
+                onClick={() => setShowUndoConfirm(false)}
+                className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUndoImport}
+                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+              >
+                Delete {latestImport.count} transactions
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {recatDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
