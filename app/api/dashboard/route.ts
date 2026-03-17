@@ -10,14 +10,23 @@ function addDays(d: Date, n: number): Date {
   return new Date(d.getTime() + n * 86_400_000);
 }
 
-function getFromDate(range: string, now: Date): string {
+function getDateRange(range: string, now: Date): { from: string; to: string } {
+  const today = toIso(now);
+  const y = now.getFullYear();
+  const m = now.getMonth(); // 0-indexed
+  // last day of previous month
+  const endOfLastMonth = toIso(new Date(y, m, 0));
+
   switch (range) {
-    case "1d":  return toIso(now);
-    case "7d":  return toIso(addDays(now, -7));
-    case "30d": return toIso(addDays(now, -30));
-    case "3m":  return toIso(new Date(now.getFullYear(), now.getMonth() - 3, now.getDate()));
-    case "12m": return toIso(new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()));
-    default:    return ""; // "all"
+    case "mtd":      return { from: toIso(new Date(y, m, 1)),    to: today          }; // This month
+    case "1month":   return { from: toIso(new Date(y, m - 1, 1)), to: endOfLastMonth }; // Prev calendar month
+    case "2month":   return { from: toIso(new Date(y, m - 2, 1)), to: endOfLastMonth }; // Last 2 complete months
+    case "3month":   return { from: toIso(new Date(y, m - 3, 1)), to: endOfLastMonth }; // Last 3 complete months
+    case "6month":   return { from: toIso(new Date(y, m - 6, 1)), to: endOfLastMonth }; // Last 6 complete months
+    case "ytd":      return { from: toIso(new Date(y, 0, 1)),     to: today          }; // Year to date
+    case "lastyear": return { from: toIso(new Date(y - 1, 0, 1)), to: toIso(new Date(y - 1, 11, 31)) }; // Prev calendar year
+    case "12m":      return { from: toIso(new Date(y - 1, m, now.getDate())), to: today }; // Rolling 12 months
+    default:         return { from: "",    to: today }; // "all"
   }
 }
 
@@ -89,7 +98,7 @@ export function GET(request: NextRequest) {
 
     const now   = new Date();
     const today = toIso(now);
-    const from  = getFromDate(dateRange, now);
+    const { from, to } = getDateRange(dateRange, now);
 
     // ── Category path lists (run once, traversed in JS — no per-root CTEs) ──
     const allCats = db.prepare(`SELECT id, name, parent_id, is_system FROM categories`).all() as FlatCat[];
@@ -108,7 +117,7 @@ export function GET(request: NextRequest) {
     const acctP = accountIds;
 
     const periodC = from ? "AND t.date >= ? AND t.date <= ?" : "AND t.date <= ?";
-    const periodP: (string | number)[] = from ? [from, today] : [today];
+    const periodP: (string | number)[] = from ? [from, to] : [to];
 
     // ── Total balance (all-time, filtered accounts, converted to CHF) ────
     const { balance } = db.prepare(`
@@ -129,9 +138,10 @@ export function GET(request: NextRequest) {
     let prevFrom = "", prevTo = "";
     if (from) {
       const fromDate = new Date(from);
-      const diffMs   = now.getTime() - fromDate.getTime();
+      const toDate   = new Date(to);
+      const diffMs   = toDate.getTime() - fromDate.getTime();
       prevTo   = toIso(new Date(fromDate.getTime() - 86_400_000));
-      prevFrom = toIso(new Date(fromDate.getTime() - diffMs));
+      prevFrom = toIso(new Date(fromDate.getTime() - diffMs - 86_400_000));
     }
     const prevC = prevFrom ? "AND t.date >= ? AND t.date <= ?" : "AND 1=0";
     const prevP: (string | number)[] = prevFrom ? [prevFrom, prevTo] : [];
@@ -160,16 +170,11 @@ export function GET(request: NextRequest) {
       return { month: label, income: row?.income ?? 0, expenses: row?.expenses ?? 0 };
     });
 
-    // ── This week ─────────────────────────────────────────────────────────
-    const weekFrom = toIso(addDays(now, -7));
-    const week = sumPeriod(db, incCats, expCats, savCats,
-      `AND t.date >= ? AND t.date <= ? ${acctTransC}`, [weekFrom, today, ...acctP]);
-
     // ── Same period last year ─────────────────────────────────────────────
-    const lyTo   = toIso(new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()));
     const lyFrom = from
       ? toIso(new Date(new Date(from).setFullYear(new Date(from).getFullYear() - 1)))
       : "";
+    const lyTo = toIso(new Date(new Date(to).setFullYear(new Date(to).getFullYear() - 1)));
     const lyC = lyFrom ? "AND t.date >= ? AND t.date <= ?" : "AND t.date <= ?";
     const lyP: (string | number)[] = lyFrom ? [lyFrom, lyTo] : [lyTo];
     const ly = sumPeriod(db, incCats, expCats, savCats, `${lyC} ${acctTransC}`, [...lyP, ...acctP]);
@@ -184,6 +189,11 @@ export function GET(request: NextRequest) {
       GROUP BY t.category
       ORDER BY amount DESC
     `).all(...periodP, ...acctP, ...expCats) as { category: string; amount: number }[];
+
+    // ── This week ─────────────────────────────────────────────────────────
+    const weekFrom = toIso(addDays(now, -7));
+    const week = sumPeriod(db, incCats, expCats, savCats,
+      `AND t.date >= ? AND t.date <= ? ${acctTransC}`, [weekFrom, today, ...acctP]);
 
     return NextResponse.json({
       summary: {

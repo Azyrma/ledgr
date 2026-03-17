@@ -19,7 +19,7 @@ type DashboardData = {
 
 export default function DashboardPage() {
   const [selectedAccounts, setSelectedAccounts] = useState<number[]>([]);
-  const [dateRange, setDateRange]               = useState("30d");
+  const [dateRange, setDateRange]               = useState("mtd");
   const [accounts, setAccounts]                 = useState<Account[]>([]);
   const [data, setData]                         = useState<DashboardData | null>(null);
 
