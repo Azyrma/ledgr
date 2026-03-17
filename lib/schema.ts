@@ -32,6 +32,14 @@ export const CREATE_TABLES = `
     created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS imports (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename    TEXT    NOT NULL,
+    account_id  INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    count       INTEGER NOT NULL,
+    imported_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS exchange_rate_cache (
     currency    TEXT PRIMARY KEY,
     rate_to_chf REAL NOT NULL,
@@ -40,6 +48,8 @@ export const CREATE_TABLES = `
 
   CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions(account_id);
   CREATE INDEX IF NOT EXISTS idx_transactions_date       ON transactions(date);
+  CREATE INDEX IF NOT EXISTS idx_transactions_category   ON transactions(category);
+  CREATE INDEX IF NOT EXISTS idx_transactions_linked     ON transactions(linked_transaction_id);
   CREATE INDEX IF NOT EXISTS idx_categories_parent_id   ON categories(parent_id);
 `;
 
@@ -64,4 +74,12 @@ export const MIGRATIONS = `
   ALTER TABLE transactions ADD COLUMN linked_transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL;
   ALTER TABLE transactions ADD COLUMN needs_review INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE accounts ADD COLUMN exchange_rate REAL NOT NULL DEFAULT 1.0;
+  CREATE TABLE IF NOT EXISTS imports (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename    TEXT    NOT NULL,
+    account_id  INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    count       INTEGER NOT NULL,
+    imported_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  ALTER TABLE transactions ADD COLUMN import_id INTEGER REFERENCES imports(id) ON DELETE SET NULL;
 `;
