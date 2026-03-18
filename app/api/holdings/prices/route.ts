@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import yahooFinance from "yahoo-finance2";
+import YahooFinance from "yahoo-finance2";
+
+const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
 type HoldingRow = {
   id: number;
@@ -32,8 +34,16 @@ export async function POST(request: NextRequest) {
 
     for (const holding of holdingsWithIsin) {
       try {
+        // ISIN doesn't work with quote() directly — search first to resolve the Yahoo symbol
+        const searchResult = await yf.search(holding.isin);
+        const symbol = searchResult?.quotes?.[0]?.symbol;
+        if (!symbol) {
+          errors.push(`${holding.ticker}: ISIN not found on Yahoo`);
+          continue;
+        }
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const quote: any = await yahooFinance.quote(holding.isin);
+        const quote: any = await yf.quote(symbol);
         if (quote && quote.regularMarketPrice != null) {
           db.prepare(
             "UPDATE holdings SET current_price = ?, price_updated_at = ? WHERE id = ?"
@@ -51,7 +61,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Price fetch failed." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
