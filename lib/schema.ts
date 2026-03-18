@@ -82,4 +82,20 @@ export const MIGRATIONS = `
     imported_at TEXT    NOT NULL DEFAULT (datetime('now'))
   );
   ALTER TABLE transactions ADD COLUMN import_id INTEGER REFERENCES imports(id) ON DELETE SET NULL;
+  CREATE TABLE IF NOT EXISTS holdings (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id         INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    ticker             TEXT    NOT NULL,
+    name               TEXT    NOT NULL,
+    shares             REAL    NOT NULL,
+    avg_cost_per_share REAL    NOT NULL,
+    currency           TEXT    NOT NULL DEFAULT 'USD',
+    created_at         TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_holdings_account_id ON holdings(account_id);
+  ALTER TABLE transactions ADD COLUMN ticker TEXT NOT NULL DEFAULT '';
+  ALTER TABLE transactions ADD COLUMN shares REAL NOT NULL DEFAULT 0;
+  ALTER TABLE holdings ADD COLUMN isin TEXT NOT NULL DEFAULT '';
+  ALTER TABLE holdings ADD COLUMN current_price REAL;
+  ALTER TABLE holdings ADD COLUMN price_updated_at TEXT;
 `;
