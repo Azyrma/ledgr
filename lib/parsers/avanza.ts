@@ -52,11 +52,18 @@ export function parseAvanza(text: string): ParsedTransaction[] {
       category: "",
     };
 
-    // For buy/sell/dividend — extract shares and holding info
-    if ((txType === BUY || txType === SELL || txType === DIVIDEND) && security) {
+    // For buy/sell — extract shares and holding info
+    if ((txType === BUY || txType === SELL) && security) {
       const shares = antalStr ? parseSwedishNumber(antalStr) : 0;
       tx.ticker = security;
       tx.shares = shares;
+      tx.holdingName = security;
+      tx.holdingCurrency = instrumentCurrency || "SEK";
+      if (isin) tx.isin = isin;
+    } else if (txType === DIVIDEND && security) {
+      // Dividends link to the holding but don't affect share count
+      tx.ticker = security;
+      tx.shares = 0;
       tx.holdingName = security;
       tx.holdingCurrency = instrumentCurrency || "SEK";
       if (isin) tx.isin = isin;
