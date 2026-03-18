@@ -8,16 +8,34 @@ export type Account = {
   currency: string;
   color: string;
   initial_balance: number;
+  exchange_rate: number;
   balance: number;
   income: number;
   expenses: number;
   transaction_count: number;
 };
 
+export type Holding = {
+  id: number;
+  account_id: number;
+  ticker: string;
+  name: string;
+  shares: number;
+  avg_cost_per_share: number;
+  currency: string;
+  isin: string;
+  current_price: number | null;
+  price_updated_at: string | null;
+  total_value: number;
+  market_value: number | null;
+};
+
 type Props = {
   account: Account;
+  holdings?: Holding[];
   onEdit: (account: Account) => void;
   onDelete: (account: Account) => void;
+  onViewHoldings?: (account: Account) => void;
 };
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
@@ -43,8 +61,12 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
-export default function AccountCard({ account, onEdit, onDelete }: Props) {
+export default function AccountCard({ account, holdings, onEdit, onDelete, onViewHoldings }: Props) {
   const typeLabel = ACCOUNT_TYPES.find((t) => t.value === account.type)?.label ?? account.type;
+  const isInvestment = account.type === "investment";
+  const hasMarketPrices = holdings?.some((h) => h.market_value != null) ?? false;
+  const portfolioValue = holdings?.reduce((sum, h) => sum + (h.market_value ?? h.total_value), 0) ?? 0;
+  const costBasis = holdings?.reduce((sum, h) => sum + h.total_value, 0) ?? 0;
 
   return (
     <div className="flex flex-col rounded-xl border border-zinc-200 bg-white overflow-hidden dark:border-zinc-800 dark:bg-zinc-900">
@@ -89,34 +111,88 @@ export default function AccountCard({ account, onEdit, onDelete }: Props) {
           </div>
         </div>
 
-        {/* Balance */}
-        <div>
-          <p className="text-xs text-zinc-400 dark:text-zinc-500">Current balance</p>
-          <p className="mt-0.5 text-2xl font-bold" style={{ color: account.balance >= 0 ? account.color : "#ef4444" }}>
-            {formatCurrency(account.balance, account.currency)}
-          </p>
-        </div>
+        {isInvestment ? (
+          <>
+            {/* Portfolio value */}
+            <div>
+              <p className="text-xs text-zinc-400 dark:text-zinc-500">
+                {hasMarketPrices ? "Market value" : "Cost basis"}
+              </p>
+              <p className="mt-0.5 text-2xl font-bold" style={{ color: account.color }}>
+                {formatCurrency(portfolioValue, account.currency)}
+              </p>
+              {hasMarketPrices && costBasis > 0 && (
+                <p className={`mt-0.5 text-xs font-medium ${portfolioValue >= costBasis ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
+                  {portfolioValue >= costBasis ? "+" : ""}{formatCurrency(portfolioValue - costBasis, account.currency)}
+                  {" "}({((portfolioValue - costBasis) / costBasis * 100).toFixed(1)}%)
+                </p>
+              )}
+            </div>
 
-        {/* Income / Expenses */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-lg bg-zinc-50 px-3 py-2.5 dark:bg-zinc-800">
-            <p className="text-xs text-zinc-400 dark:text-zinc-500">Income</p>
-            <p className="mt-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
-              {formatCurrency(account.income, account.currency)}
-            </p>
-          </div>
-          <div className="rounded-lg bg-zinc-50 px-3 py-2.5 dark:bg-zinc-800">
-            <p className="text-xs text-zinc-400 dark:text-zinc-500">Expenses</p>
-            <p className="mt-0.5 text-sm font-semibold text-red-500 dark:text-red-400">
-              {formatCurrency(account.expenses, account.currency)}
-            </p>
-          </div>
-        </div>
+            {/* Mini holdings list */}
+            {holdings && holdings.length > 0 ? (
+              <div className="flex flex-col gap-1.5">
+                {holdings.slice(0, 4).map((h) => (
+                  <div key={h.id} className="flex items-center justify-between rounded-md bg-zinc-50 px-3 py-1.5 dark:bg-zinc-800">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{h.ticker}</span>
+                      <span className="text-xs text-zinc-400 dark:text-zinc-500">{h.shares} shares</span>
+                    </div>
+                    <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                      {formatCurrency(h.market_value ?? h.total_value, h.currency)}
+                    </span>
+                  </div>
+                ))}
+                {holdings.length > 4 && (
+                  <p className="text-xs text-zinc-400 dark:text-zinc-500 text-center">
+                    +{holdings.length - 4} more
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-400 dark:text-zinc-500">No holdings yet</p>
+            )}
 
-        {/* Footer */}
-        <p className="text-xs text-zinc-300 dark:text-zinc-600">
-          {account.transaction_count} transaction{account.transaction_count !== 1 ? "s" : ""}
-        </p>
+            {/* View holdings button */}
+            <button
+              onClick={() => onViewHoldings?.(account)}
+              className="rounded-md border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              Manage holdings
+            </button>
+          </>
+        ) : (
+          <>
+            {/* Balance */}
+            <div>
+              <p className="text-xs text-zinc-400 dark:text-zinc-500">Current balance</p>
+              <p className="mt-0.5 text-2xl font-bold" style={{ color: account.balance >= 0 ? account.color : "#ef4444" }}>
+                {formatCurrency(account.balance, account.currency)}
+              </p>
+            </div>
+
+            {/* Income / Expenses */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg bg-zinc-50 px-3 py-2.5 dark:bg-zinc-800">
+                <p className="text-xs text-zinc-400 dark:text-zinc-500">Income</p>
+                <p className="mt-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                  {formatCurrency(account.income, account.currency)}
+                </p>
+              </div>
+              <div className="rounded-lg bg-zinc-50 px-3 py-2.5 dark:bg-zinc-800">
+                <p className="text-xs text-zinc-400 dark:text-zinc-500">Expenses</p>
+                <p className="mt-0.5 text-sm font-semibold text-red-500 dark:text-red-400">
+                  {formatCurrency(account.expenses, account.currency)}
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <p className="text-xs text-zinc-300 dark:text-zinc-600">
+              {account.transaction_count} transaction{account.transaction_count !== 1 ? "s" : ""}
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
