@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, memo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import CsvImportModal from "../components/CsvImportModal";
 import AddTransactionModal from "../components/AddTransactionModal";
+import ExportCsvModal from "../components/ExportCsvModal";
 import TransactionFilters, { DEFAULT_FILTERS, type Filters } from "../components/TransactionFilters";
 import SetCategoryPopover, { buildSections, type Section } from "../components/SetCategoryPopover";
 import { formatCurrency } from "@/lib/utils";
@@ -500,6 +501,7 @@ export default function TransactionsPage() {
   const [recatDialog, setRecatDialog] = useState<RecatDialog | null>(null);
   const [latestImport, setLatestImport] = useState<LatestImport>(null);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const catPortalRef = useRef<CatPortalHandle>(null);
   const barRef = useRef<HTMLDivElement>(null);
 
@@ -887,6 +889,19 @@ export default function TransactionsPage() {
             </span>
             <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-700" />
 
+            {/* Export */}
+            <button
+              onClick={() => setShowExport(true)}
+              className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Export
+            </button>
+
             {/* Set category */}
             <div className="relative">
               <button
@@ -978,6 +993,7 @@ export default function TransactionsPage() {
         refresh();
         fetch("/api/imports").then((r) => r.json()).then(setLatestImport);
       }} />}
+      {showExport && <ExportCsvModal transactions={selectedTxs} onClose={() => setShowExport(false)} />}
 
       {showUndoConfirm && latestImport && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
