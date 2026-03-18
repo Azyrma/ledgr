@@ -30,9 +30,20 @@ export async function POST(request: NextRequest) {
     if (!name) return NextResponse.json({ error: "Name is required." }, { status: 400 });
 
     const db = getDb();
+    const cur = currency ?? "CHF";
+
+    // Use cached exchange rate if user didn't provide one
+    let rate = exchange_rate;
+    if (rate == null && cur !== "CHF") {
+      const cached = db.prepare(
+        "SELECT rate_to_chf FROM exchange_rate_cache WHERE currency = ?"
+      ).get(cur) as { rate_to_chf: number } | undefined;
+      rate = cached?.rate_to_chf ?? 1.0;
+    }
+
     const result = db.prepare(
       "INSERT INTO accounts (name, type, currency, color, initial_balance, exchange_rate) VALUES (?, ?, ?, ?, ?, ?)"
-    ).run(name, type ?? "checking", currency ?? "CHF", color ?? "#6366f1", initial_balance ?? 0, exchange_rate ?? 1.0);
+    ).run(name, type ?? "checking", cur, color ?? "#6366f1", initial_balance ?? 0, rate ?? 1.0);
 
     return NextResponse.json({ id: result.lastInsertRowid });
   } catch (err) {
