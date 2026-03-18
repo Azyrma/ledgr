@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import AccountCard, { Account } from "../components/AccountCard";
+import AccountCard, { Account, Holding } from "../components/AccountCard";
 import AccountModal from "../components/AccountModal";
+import HoldingsModal from "../components/HoldingsModal";
 
 type EditTarget = Account | null;
 
@@ -13,6 +14,8 @@ export default function AccountsPage() {
   const [editTarget, setEditTarget] = useState<EditTarget>(null);
   const [deleteTarget, setDeleteTarget] = useState<Account | null>(null);
   const [deleting, setDeleting]     = useState(false);
+  const [holdingsAccount, setHoldingsAccount] = useState<Account | null>(null);
+  const [holdingsMap, setHoldingsMap] = useState<Record<number, Holding[]>>({});
 
   const fetchAccounts = useCallback(async () => {
     setLoading(true);
@@ -21,7 +24,17 @@ export default function AccountsPage() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
+  const fetchAllHoldings = useCallback(async () => {
+    const res = await fetch("/api/holdings");
+    const all: Holding[] = await res.json();
+    const map: Record<number, Holding[]> = {};
+    for (const h of all) {
+      (map[h.account_id] ??= []).push(h);
+    }
+    setHoldingsMap(map);
+  }, []);
+
+  useEffect(() => { fetchAccounts(); fetchAllHoldings(); }, [fetchAccounts, fetchAllHoldings]);
 
   function openAdd() { setEditTarget(null); setShowModal(true); }
   function openEdit(account: Account) { setEditTarget(account); setShowModal(true); }
@@ -33,7 +46,16 @@ export default function AccountsPage() {
     setDeleteTarget(null);
     setDeleting(false);
     fetchAccounts();
+    fetchAllHoldings();
   }
+
+  function handleAccountSaved() {
+    fetchAccounts();
+    fetchAllHoldings();
+  }
+
+  const regularAccounts = accounts.filter((a) => a.type !== "investment");
+  const investmentAccounts = accounts.filter((a) => a.type === "investment");
 
   return (
     <div className="flex flex-col h-full">
@@ -72,15 +94,42 @@ export default function AccountsPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {accounts.map((account) => (
-              <AccountCard
-                key={account.id}
-                account={account}
-                onEdit={openEdit}
-                onDelete={setDeleteTarget}
-              />
-            ))}
+          <div className="flex flex-col gap-8">
+            {/* Regular accounts */}
+            {regularAccounts.length > 0 && (
+              <section>
+                <h2 className="mb-4 text-sm font-semibold text-zinc-500 uppercase tracking-wider dark:text-zinc-400">Accounts</h2>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {regularAccounts.map((account) => (
+                    <AccountCard
+                      key={account.id}
+                      account={account}
+                      onEdit={openEdit}
+                      onDelete={setDeleteTarget}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Investment accounts */}
+            {investmentAccounts.length > 0 && (
+              <section>
+                <h2 className="mb-4 text-sm font-semibold text-zinc-500 uppercase tracking-wider dark:text-zinc-400">Investments</h2>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {investmentAccounts.map((account) => (
+                    <AccountCard
+                      key={account.id}
+                      account={account}
+                      holdings={holdingsMap[account.id]}
+                      onEdit={openEdit}
+                      onDelete={setDeleteTarget}
+                      onViewHoldings={setHoldingsAccount}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         )}
       </div>
@@ -90,7 +139,16 @@ export default function AccountsPage() {
         <AccountModal
           initial={editTarget ? { ...editTarget } : undefined}
           onClose={() => setShowModal(false)}
-          onSaved={fetchAccounts}
+          onSaved={handleAccountSaved}
+        />
+      )}
+
+      {/* Holdings modal */}
+      {holdingsAccount && (
+        <HoldingsModal
+          account={holdingsAccount}
+          onClose={() => setHoldingsAccount(null)}
+          onChanged={() => { fetchAccounts(); fetchAllHoldings(); }}
         />
       )}
 
@@ -100,14 +158,15 @@ export default function AccountsPage() {
           <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white p-6 shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
             <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">Delete account?</h3>
             <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-              <span className="font-medium text-zinc-700 dark:text-zinc-300">{deleteTarget.name}</span> and all its transactions will be permanently deleted.
+              <span className="font-medium text-zinc-700 dark:text-zinc-300">{deleteTarget.name}</span> and all its
+              {deleteTarget.type === "investment" ? " holdings and" : ""} transactions will be permanently deleted.
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setDeleteTarget(null)} className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800">
                 Cancel
               </button>
               <button onClick={handleDelete} disabled={deleting} className="rounded-md bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600 disabled:opacity-50">
-                {deleting ? "Deleting…" : "Delete"}
+                {deleting ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>
