@@ -153,8 +153,11 @@ export default function HoldingsModal({ account, onClose, onChanged }: Props) {
                           {h.current_price != null ? formatCurrency(h.current_price, h.currency) : "—"}
                         </td>
                       )}
-                      <td className="px-4 py-3 text-right font-mono font-medium text-zinc-900 dark:text-zinc-100">
-                        {formatCurrency(displayValue, h.currency)}
+                      <td className="px-4 py-3 text-right font-mono">
+                        {h.market_value != null && (
+                          <p className="text-xs text-zinc-400 dark:text-zinc-500">{formatCurrency(h.total_value, h.currency)}</p>
+                        )}
+                        <p className="font-medium text-zinc-900 dark:text-zinc-100">{formatCurrency(displayValue, h.currency)}</p>
                       </td>
                       {hasMarketPrices && (
                         <td className="px-4 py-3 text-right font-mono">
