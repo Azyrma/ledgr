@@ -58,6 +58,7 @@ export default function SpendingByCategory({ data }: Props) {
                   outerRadius="80%"
                   paddingAngle={2}
                   strokeWidth={0}
+                  isAnimationActive={false}
                 >
                   {filtered.map((entry, index) => (
                     <Cell
@@ -66,7 +67,7 @@ export default function SpendingByCategory({ data }: Props) {
                     />
                   ))}
                 </Pie>
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip content={<CustomTooltip />} isAnimationActive={false} />
               </PieChart>
             </ResponsiveContainer>
           </div>

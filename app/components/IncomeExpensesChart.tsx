@@ -47,6 +47,7 @@ export default function IncomeExpensesChart({ data }: Props) {
           <Tooltip
             cursor={{ fill: "rgba(0,0,0,0.04)" }}
             position={{ y: 0 }}
+            isAnimationActive={false}
             formatter={(value, name) => [
               formatCurrency(Number(value), "CHF", 0),
               String(name).charAt(0).toUpperCase() + String(name).slice(1),
@@ -64,8 +65,8 @@ export default function IncomeExpensesChart({ data }: Props) {
             formatter={(value) => value.charAt(0).toUpperCase() + value.slice(1)}
             wrapperStyle={{ fontSize: "12px", paddingTop: "16px" }}
           />
-          <Bar dataKey="income" fill="#10b981" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="income" fill="#10b981" radius={[4, 4, 0, 0]} isAnimationActive={false} />
+          <Bar dataKey="expenses" fill="#ef4444" radius={[4, 4, 0, 0]} isAnimationActive={false} />
         </BarChart>
       </ResponsiveContainer>
     </div>
