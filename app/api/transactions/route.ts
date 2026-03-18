@@ -67,7 +67,7 @@ export function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { date, description, accountId, category, amount } = await request.json();
+    const { date, description, accountId, category, amount, ticker, shares } = await request.json();
 
     if (!date || !description || !accountId || amount === undefined) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
@@ -78,8 +78,8 @@ export async function POST(request: NextRequest) {
     if (!account) return NextResponse.json({ error: "Account not found." }, { status: 404 });
 
     const result = db
-      .prepare("INSERT INTO transactions (account_id, date, description, amount, category) VALUES (?, ?, ?, ?, ?)")
-      .run(accountId, date, description, amount, category ?? "");
+      .prepare("INSERT INTO transactions (account_id, date, description, amount, category, ticker, shares) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(accountId, date, description, amount, category ?? "", ticker ?? "", shares ?? 0);
 
     return NextResponse.json({ id: result.lastInsertRowid });
   } catch (err) {
