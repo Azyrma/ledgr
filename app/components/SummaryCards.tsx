@@ -19,7 +19,7 @@ export default function SummaryCards({ balance, income, expenses, savings }: Pro
     {
       label: "Balance",
       value: balance,
-      color: "text-zinc-900 dark:text-zinc-50",
+      color: "text-base-content",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -30,7 +30,7 @@ export default function SummaryCards({ balance, income, expenses, savings }: Pro
     {
       label: "Income",
       value: income,
-      color: "text-emerald-600 dark:text-emerald-400",
+      color: "text-success",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <line x1="12" y1="19" x2="12" y2="5" />
@@ -41,7 +41,7 @@ export default function SummaryCards({ balance, income, expenses, savings }: Pro
     {
       label: "Expenses",
       value: expenses,
-      color: "text-red-500 dark:text-red-400",
+      color: "text-error",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <line x1="12" y1="5" x2="12" y2="19" />
@@ -52,7 +52,7 @@ export default function SummaryCards({ balance, income, expenses, savings }: Pro
     {
       label: "Savings",
       value: savings,
-      color: "text-blue-600 dark:text-blue-400",
+      color: "text-info",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
           <path d="M19 21V5a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v16" />
@@ -67,19 +67,16 @@ export default function SummaryCards({ balance, income, expenses, savings }: Pro
   return (
     <div className="grid grid-cols-4 gap-4">
       {cards.map((card) => (
-        <div
-          key={card.label}
-          className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900"
-        >
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
-              {card.label}
-            </span>
-            <span className={`${card.color}`}>{card.icon}</span>
+        <div key={card.label} className="card bg-base-100 border border-base-300">
+          <div className="card-body p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-base-content/60">{card.label}</span>
+              <span className={card.color}>{card.icon}</span>
+            </div>
+            <p className={`mt-3 text-2xl font-semibold ${card.color}`}>
+              {formatCurrency(card.value)}
+            </p>
           </div>
-          <p className={`mt-3 text-2xl font-semibold ${card.color}`}>
-            {formatCurrency(card.value)}
-          </p>
         </div>
       ))}
     </div>

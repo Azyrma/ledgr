@@ -10,9 +10,6 @@ type Props = {
   onSaved: () => void;
 };
 
-const inputClass =
-  "w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 placeholder-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:placeholder-zinc-600 dark:focus:ring-zinc-600";
-
 export default function CategoryModal({ parentId, parentName, initial, onClose, onSaved }: Props) {
   const isEdit = !!initial;
   const [name, setName]     = useState(initial?.name ?? "");
@@ -43,45 +40,36 @@ export default function CategoryModal({ parentId, parentName, initial, onClose, 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-sm rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
-        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-          <div>
-            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-              {isEdit ? "Rename category" : "Add category"}
-            </h2>
-            {!isEdit && (
-              <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">Under: {parentName}</p>
-            )}
-          </div>
-          <button onClick={onClose} className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
+    <dialog className="modal modal-open">
+      <div className="modal-box max-w-sm">
+        <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4">✕</button>
+        <h3 className="text-lg font-bold">
+          {isEdit ? "Rename category" : "Add category"}
+        </h3>
+        {!isEdit && (
+          <p className="mt-0.5 text-sm text-base-content/50">Under: {parentName}</p>
+        )}
 
-        <form onSubmit={handleSubmit} className="p-6">
+        <form onSubmit={handleSubmit} className="mt-4">
           <input
             type="text"
             placeholder="Category name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className={inputClass}
+            className="input input-bordered w-full"
             autoFocus
           />
-          {error && <p className="mt-2 text-sm text-red-500">{error}</p>}
+          {error && <p className="mt-2 text-sm text-error">{error}</p>}
         </form>
 
-        <div className="flex justify-end gap-2 border-t border-zinc-200 px-6 py-4 dark:border-zinc-800">
-          <button type="button" onClick={onClose} className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800">
-            Cancel
-          </button>
-          <button onClick={handleSubmit} disabled={saving} className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900">
+        <div className="modal-action">
+          <button type="button" onClick={onClose} className="btn btn-ghost">Cancel</button>
+          <button onClick={handleSubmit} disabled={saving} className="btn btn-primary">
             {saving ? "Saving…" : isEdit ? "Save" : "Add"}
           </button>
         </div>
       </div>
-    </div>
+      <form method="dialog" className="modal-backdrop"><button onClick={onClose}>close</button></form>
+    </dialog>
   );
 }

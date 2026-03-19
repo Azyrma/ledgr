@@ -101,26 +101,12 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex w-full max-w-lg flex-col rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-            Import Transactions
-          </h2>
-          <button
-            onClick={onClose}
-            className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
+    <dialog className="modal modal-open">
+      <div className="modal-box max-w-lg">
+        <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4">✕</button>
+        <h3 className="text-lg font-bold">Import Transactions</h3>
 
-        {/* Body */}
-        <div className="p-6">
-
+        <div className="mt-4">
           {/* Step: select file */}
           {(step === "select" || step === "error") && (
             <div className="flex flex-col items-center gap-4">
@@ -128,18 +114,18 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
                 onDrop={handleDrop}
                 onDragOver={(e) => e.preventDefault()}
                 onClick={() => inputRef.current?.click()}
-                className="flex w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-zinc-200 bg-zinc-50 px-8 py-12 transition-colors hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800/50 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
+                className="flex w-full cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-base-300 bg-base-200 px-8 py-12 transition-colors hover:border-primary/30 hover:bg-base-200/80"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-zinc-300 dark:text-zinc-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-base-content/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                   <polyline points="17 8 12 3 7 8" />
                   <line x1="12" y1="3" x2="12" y2="15" />
                 </svg>
                 <div className="text-center">
-                  <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  <p className="text-sm font-medium">
                     Drop your bank export here, or click to browse
                   </p>
-                  <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+                  <p className="mt-1 text-xs text-base-content/50">
                     PostFinance (.csv) · Handelsbanken (.xlsx) · Moneydance (.csv) · Avanza (.csv)
                   </p>
                 </div>
@@ -152,7 +138,7 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
                 />
               </div>
               {step === "error" && (
-                <p className="text-sm text-red-500">{errorMsg}</p>
+                <p className="text-sm text-error">{errorMsg}</p>
               )}
             </div>
           )}
@@ -160,37 +146,27 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
           {/* Step: confirm */}
           {step === "confirm" && file && (
             <div className="flex flex-col gap-5">
-              <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800">
+              <div className="flex items-center gap-3 rounded-lg bg-base-200 px-4 py-3">
                 <span className="text-2xl">{BANK_ICONS[bankType]}</span>
                 <div>
-                  <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">{file.name}</p>
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500">{BANK_LABELS[bankType]}</p>
+                  <p className="text-sm font-medium">{file.name}</p>
+                  <p className="text-xs text-base-content/50">{BANK_LABELS[bankType]}</p>
                 </div>
-                <button
-                  onClick={reset}
-                  className="ml-auto text-xs text-zinc-400 underline hover:text-zinc-600 dark:hover:text-zinc-300"
-                >
-                  Change
-                </button>
+                <button onClick={reset} className="btn btn-ghost btn-xs ml-auto">Change</button>
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  Import to account
-                </label>
+              <fieldset className="fieldset">
+                <legend className="fieldset-legend">Import to account</legend>
                 {accounts.length === 0 ? (
-                  <p className="text-sm text-zinc-400 dark:text-zinc-500">
+                  <p className="text-sm text-base-content/50">
                     No accounts found. Add one on the{" "}
-                    <a href="/accounts" className="underline hover:text-zinc-700 dark:hover:text-zinc-200">
-                      Accounts page
-                    </a>{" "}
-                    first.
+                    <a href="/accounts" className="link">Accounts page</a> first.
                   </p>
                 ) : (
                   <select
                     value={accountId}
                     onChange={(e) => setAccountId(Number(e.target.value))}
-                    className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 focus:outline-none focus:ring-2 focus:ring-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                    className="select select-bordered w-full"
                   >
                     <option value="">Select an account…</option>
                     {accounts.map((a) => (
@@ -198,33 +174,33 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
                     ))}
                   </select>
                 )}
-              </div>
+              </fieldset>
             </div>
           )}
 
           {/* Step: duplicates */}
           {step === "duplicates" && (
             <div className="flex flex-col gap-4">
-              <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800/50 dark:bg-amber-900/20">
-                <svg xmlns="http://www.w3.org/2000/svg" className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <div role="alert" className="alert alert-warning">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                   <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
-                <p className="text-sm text-amber-800 dark:text-amber-300">
+                <span>
                   <span className="font-semibold">{duplicates.length} transaction{duplicates.length !== 1 ? "s" : ""} already exist</span>
                   {" "}with the same date, description, and amount.
-                </p>
+                </span>
               </div>
 
-              <div className="max-h-60 overflow-y-auto rounded-lg border border-zinc-200 dark:border-zinc-700">
-                <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              <div className="max-h-60 overflow-y-auto rounded-lg border border-base-300">
+                <div className="divide-y divide-base-300">
                   {duplicates.map((d, i) => (
                     <div key={i} className="flex items-center justify-between px-4 py-2.5">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm text-zinc-800 dark:text-zinc-200">{d.description}</p>
-                        <p className="text-xs text-zinc-400 dark:text-zinc-500">{formatDate(d.date)}</p>
+                        <p className="truncate text-sm">{d.description}</p>
+                        <p className="text-xs text-base-content/50">{formatDate(d.date)}</p>
                       </div>
-                      <span className={`ml-3 shrink-0 text-sm font-medium tabular-nums ${d.amount >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-700 dark:text-zinc-300"}`}>
+                      <span className={`ml-3 shrink-0 text-sm font-medium tabular-nums ${d.amount >= 0 ? "text-success" : ""}`}>
                         {formatCurrency(d.amount)}
                       </span>
                     </div>
@@ -237,23 +213,20 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
           {/* Step: importing */}
           {step === "importing" && (
             <div className="flex flex-col items-center gap-3 py-8">
-              <svg className="h-8 w-8 animate-spin text-zinc-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-              </svg>
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">Importing transactions…</p>
+              <span className="loading loading-spinner loading-lg"></span>
+              <p className="text-sm text-base-content/60">Importing transactions…</p>
             </div>
           )}
 
           {/* Step: done */}
           {step === "done" && (
             <div className="flex flex-col items-center gap-3 py-8">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-success/20">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-success" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               </div>
-              <p className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              <p className="text-sm font-medium">
                 {importedCount} transactions imported successfully.
               </p>
             </div>
@@ -261,41 +234,23 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 border-t border-zinc-200 px-6 py-4 dark:border-zinc-800">
+        <div className="modal-action">
           {step === "done" ? (
-            <button onClick={onClose} className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200">
-              Close
-            </button>
+            <button onClick={onClose} className="btn btn-primary">Close</button>
           ) : step === "duplicates" ? (
             <>
-              <button
-                onClick={() => submitImport({ skipDuplicates: "true" })}
-                className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
+              <button onClick={() => submitImport({ skipDuplicates: "true" })} className="btn btn-ghost">
                 Skip {duplicates.length} duplicate{duplicates.length !== 1 ? "s" : ""}
               </button>
-              <button
-                onClick={() => submitImport({ importAll: "true" })}
-                className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-              >
+              <button onClick={() => submitImport({ importAll: "true" })} className="btn btn-primary">
                 Import all
               </button>
             </>
           ) : (
             <>
-              <button
-                onClick={onClose}
-                disabled={step === "importing"}
-                className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                Cancel
-              </button>
+              <button onClick={onClose} disabled={step === "importing"} className="btn btn-ghost">Cancel</button>
               {step === "confirm" && (
-                <button
-                  onClick={() => submitImport()}
-                  disabled={!accountId}
-                  className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-                >
+                <button onClick={() => submitImport()} disabled={!accountId} className="btn btn-primary">
                   Import
                 </button>
               )}
@@ -303,6 +258,7 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
           )}
         </div>
       </div>
-    </div>
+      <form method="dialog" className="modal-backdrop"><button onClick={onClose}>close</button></form>
+    </dialog>
   );
 }

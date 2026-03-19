@@ -14,33 +14,6 @@ type Props = {
   data: FinancialHealthData;
 };
 
-function ProgressBar({
-  value,
-  target,
-  invert = false,
-}: {
-  value: number;
-  target: number;
-  invert?: boolean;
-}) {
-  const pct = Math.min((value / target) * 100, 100);
-  const isGood = invert ? value <= target : value >= target;
-  const barColor = isGood
-    ? "bg-emerald-500"
-    : pct >= 70
-    ? "bg-amber-400"
-    : "bg-red-500";
-
-  return (
-    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
-      <div
-        className={`h-full rounded-full transition-all ${barColor}`}
-        style={{ width: `${pct}%` }}
-      />
-    </div>
-  );
-}
-
 function Metric({
   label,
   children,
@@ -50,7 +23,7 @@ function Metric({
 }) {
   return (
     <div className="py-3">
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+      <p className="text-xs font-medium uppercase tracking-wide text-base-content/40">
         {label}
       </p>
       <div className="mt-1">{children}</div>
@@ -81,100 +54,94 @@ export default function FinancialHealth({ data }: Props) {
       : null;
 
   return (
-    <div className="flex h-full flex-col rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
-      <h2 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-        Financial Health
-      </h2>
+    <div className="card h-full bg-base-100 border border-base-300">
+      <div className="card-body p-6">
+        <h2 className="mb-2 text-sm font-semibold">Financial Health</h2>
 
-      <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-        {/* Savings Rate */}
-        <Metric label="Savings Rate">
-          <div className="flex items-baseline justify-between">
-            <span className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-              {savingsRate.toFixed(1)}%
-            </span>
-            <span className="text-xs text-zinc-400 dark:text-zinc-500">
-              target 20%
-            </span>
-          </div>
-          <ProgressBar value={savingsRate} target={20} />
-          <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-            {formatCurrency(savings)} saved of {formatCurrency(income)} income
-          </p>
-        </Metric>
-
-        {/* Expense Ratio */}
-        <Metric label="Expense Ratio">
-          <div className="flex items-baseline justify-between">
-            <span className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-              {expenseRatio.toFixed(1)}%
-            </span>
-            <span className="text-xs text-zinc-400 dark:text-zinc-500">
-              target &lt;80%
-            </span>
-          </div>
-          <ProgressBar value={expenseRatio} target={80} invert />
-          <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-            {formatCurrency(expenses)} spent of {formatCurrency(income)} income
-          </p>
-        </Metric>
-
-        {/* Month-over-Month */}
-        <Metric label="Spending vs Previous Period">
-          {momChange === null ? (
-            <p className="text-sm text-zinc-400 dark:text-zinc-500">No prior period data</p>
-          ) : (
-            <div className="flex items-baseline gap-2">
-              <span className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-                {Math.abs(momChange).toFixed(1)}%
-              </span>
-              <span
-                className={`text-sm font-medium ${
-                  momChange <= 0
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-red-500 dark:text-red-400"
-                }`}
-              >
-                {momChange <= 0 ? "▼ less" : "▲ more"} than last period
-              </span>
+        <div className="divide-y divide-base-300">
+          {/* Savings Rate */}
+          <Metric label="Savings Rate">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xl font-semibold">{savingsRate.toFixed(1)}%</span>
+              <span className="text-xs text-base-content/40">target 20%</span>
             </div>
-          )}
-        </Metric>
+            <progress
+              className={`progress w-full mt-2 ${savingsRate >= 20 ? "progress-success" : savingsRate >= 14 ? "progress-warning" : "progress-error"}`}
+              value={Math.min(savingsRate, 100)}
+              max="100"
+            ></progress>
+            <p className="mt-1 text-xs text-base-content/40">
+              {formatCurrency(savings)} saved of {formatCurrency(income)} income
+            </p>
+          </Metric>
 
-        {/* Budget Adherence */}
-        <Metric label="Budget Adherence">
-          {budgetAdherence === null ? (
-            <p className="text-sm text-zinc-400 dark:text-zinc-500">No budgets set</p>
-          ) : (
-            <>
-              <div className="flex items-baseline justify-between">
-                <span className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-                  {budgetAdherence.toFixed(0)}%
+          {/* Expense Ratio */}
+          <Metric label="Expense Ratio">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xl font-semibold">{expenseRatio.toFixed(1)}%</span>
+              <span className="text-xs text-base-content/40">target &lt;80%</span>
+            </div>
+            <progress
+              className={`progress w-full mt-2 ${expenseRatio <= 80 ? "progress-success" : expenseRatio <= 90 ? "progress-warning" : "progress-error"}`}
+              value={Math.min(expenseRatio, 100)}
+              max="100"
+            ></progress>
+            <p className="mt-1 text-xs text-base-content/40">
+              {formatCurrency(expenses)} spent of {formatCurrency(income)} income
+            </p>
+          </Metric>
+
+          {/* Month-over-Month */}
+          <Metric label="Spending vs Previous Period">
+            {momChange === null ? (
+              <p className="text-sm text-base-content/40">No prior period data</p>
+            ) : (
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl font-semibold">
+                  {Math.abs(momChange).toFixed(1)}%
                 </span>
-                <span className="text-xs text-zinc-400 dark:text-zinc-500">
-                  {budgetCategoriesOnTrack}/{budgetCategoriesTotal} on track
+                <span className={`text-sm font-medium ${momChange <= 0 ? "text-success" : "text-error"}`}>
+                  {momChange <= 0 ? "▼ less" : "▲ more"} than last period
                 </span>
               </div>
-              <ProgressBar value={budgetAdherence} target={80} />
-            </>
-          )}
-        </Metric>
+            )}
+          </Metric>
 
-        {/* Largest Expense Category */}
-        <Metric label="Largest Expense Category">
-          {largestExpenseCategory ? (
-            <div className="flex items-baseline justify-between">
-              <span className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-                {largestExpenseCategory.name}
-              </span>
-              <span className="text-sm font-medium text-red-500 dark:text-red-400">
-                {formatCurrency(largestExpenseCategory.amount)}
-              </span>
-            </div>
-          ) : (
-            <p className="text-sm text-zinc-400 dark:text-zinc-500">No expense data</p>
-          )}
-        </Metric>
+          {/* Budget Adherence */}
+          <Metric label="Budget Adherence">
+            {budgetAdherence === null ? (
+              <p className="text-sm text-base-content/40">No budgets set</p>
+            ) : (
+              <>
+                <div className="flex items-baseline justify-between">
+                  <span className="text-xl font-semibold">{budgetAdherence.toFixed(0)}%</span>
+                  <span className="text-xs text-base-content/40">
+                    {budgetCategoriesOnTrack}/{budgetCategoriesTotal} on track
+                  </span>
+                </div>
+                <progress
+                  className={`progress w-full mt-2 ${budgetAdherence >= 80 ? "progress-success" : budgetAdherence >= 56 ? "progress-warning" : "progress-error"}`}
+                  value={Math.min(budgetAdherence, 100)}
+                  max="100"
+                ></progress>
+              </>
+            )}
+          </Metric>
+
+          {/* Largest Expense Category */}
+          <Metric label="Largest Expense Category">
+            {largestExpenseCategory ? (
+              <div className="flex items-baseline justify-between">
+                <span className="text-base font-semibold">{largestExpenseCategory.name}</span>
+                <span className="text-sm font-medium text-error">
+                  {formatCurrency(largestExpenseCategory.amount)}
+                </span>
+              </div>
+            ) : (
+              <p className="text-sm text-base-content/40">No expense data</p>
+            )}
+          </Metric>
+        </div>
       </div>
     </div>
   );

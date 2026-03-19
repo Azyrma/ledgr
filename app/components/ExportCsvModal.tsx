@@ -24,10 +24,8 @@ type Props = {
 };
 
 export default function ExportCsvModal({ transactions, onClose }: Props) {
-  // Sort transactions by date ascending (oldest first)
   const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
 
-  // Build rows with running total
   const rows: Array<{
     date: string;
     description: string;
@@ -51,13 +49,11 @@ export default function ExportCsvModal({ transactions, onClose }: Props) {
     });
   }
 
-  // Helper function to format dates for display
   function formatDate(iso: string) {
     const [y, m, d] = iso.split("-");
     return `${d}.${m}.${y}`;
   }
 
-  // Generate CSV content
   function generateCsv(): string {
     const headers = ["Date", "Description", "Account", "Category", "Amount (CHF)", "Running Total"];
     const csvRows: string[] = [headers.map(quoteField).join(",")];
@@ -76,7 +72,6 @@ export default function ExportCsvModal({ transactions, onClose }: Props) {
     return csvRows.join("\n");
   }
 
-  // Quote fields that contain commas, quotes, or newlines
   function quoteField(field: string): string {
     if (field.includes(",") || field.includes('"') || field.includes("\n")) {
       return `"${field.replace(/"/g, '""')}"`;
@@ -84,14 +79,12 @@ export default function ExportCsvModal({ transactions, onClose }: Props) {
     return field;
   }
 
-  // Download CSV
   function handleDownload() {
     const csv = generateCsv();
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
 
-    // Generate filename with today's date
     const today = new Date();
     const dateStr = today.toISOString().split("T")[0];
     const filename = `transactions-export-${dateStr}.csv`;
@@ -106,73 +99,41 @@ export default function ExportCsvModal({ transactions, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex w-full max-w-4xl max-h-[80vh] flex-col rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">Export Transactions</h2>
-          <button
-            onClick={onClose}
-            className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
+    <dialog className="modal modal-open">
+      <div className="modal-box max-w-4xl max-h-[80vh] flex flex-col">
+        <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4">✕</button>
+        <h3 className="text-lg font-bold">Export Transactions</h3>
 
-        {/* Preview Table */}
-        <div className="min-h-0 flex-1 overflow-auto p-6">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-zinc-200 dark:border-zinc-700">
-                  <th className="sticky top-0 bg-white px-4 py-2 text-left font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-zinc-50">Date</th>
-                  <th className="sticky top-0 bg-white px-4 py-2 text-left font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-zinc-50">Description</th>
-                  <th className="sticky top-0 bg-white px-4 py-2 text-left font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-zinc-50">Account</th>
-                  <th className="sticky top-0 bg-white px-4 py-2 text-left font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-zinc-50">Category</th>
-                  <th className="sticky top-0 bg-white px-4 py-2 text-right font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-zinc-50">Amount</th>
-                  <th className="sticky top-0 bg-white px-4 py-2 text-right font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-zinc-50">Running Total</th>
+        <div className="mt-4 min-h-0 flex-1 overflow-auto">
+          <table className="table table-zebra table-sm">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Description</th>
+                <th>Account</th>
+                <th>Category</th>
+                <th className="text-right">Amount</th>
+                <th className="text-right">Running Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, idx) => (
+                <tr key={idx}>
+                  <td>{formatDate(row.date)}</td>
+                  <td>{row.description}</td>
+                  <td>{row.account}</td>
+                  <td>{row.category}</td>
+                  <td className="text-right font-mono">{formatCurrency(row.amount)}</td>
+                  <td className="text-right font-mono">{formatCurrency(row.runningTotal)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {rows.map((row, idx) => (
-                  <tr
-                    key={idx}
-                    className={`border-b border-zinc-100 transition-colors dark:border-zinc-800 ${
-                      idx % 2 === 0
-                        ? "bg-white dark:bg-zinc-900"
-                        : "bg-zinc-50 dark:bg-zinc-800/40"
-                    } hover:bg-zinc-100 dark:hover:bg-zinc-800`}
-                  >
-                    <td className="px-4 py-2 text-zinc-700 dark:text-zinc-300">{formatDate(row.date)}</td>
-                    <td className="px-4 py-2 text-zinc-700 dark:text-zinc-300">{row.description}</td>
-                    <td className="px-4 py-2 text-zinc-700 dark:text-zinc-300">{row.account}</td>
-                    <td className="px-4 py-2 text-zinc-700 dark:text-zinc-300">{row.category}</td>
-                    <td className="px-4 py-2 text-right font-mono text-zinc-700 dark:text-zinc-300">
-                      {formatCurrency(row.amount)}
-                    </td>
-                    <td className="px-4 py-2 text-right font-mono text-zinc-700 dark:text-zinc-300">
-                      {formatCurrency(row.runningTotal)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+              ))}
+            </tbody>
+          </table>
         </div>
 
-        {/* Footer */}
-        <div className="flex justify-end gap-2 border-t border-zinc-200 px-6 py-4 dark:border-zinc-800">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            Close
-          </button>
-          <button
-            onClick={handleDownload}
-            className="flex items-center gap-2 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-          >
+        <div className="modal-action">
+          <button type="button" onClick={onClose} className="btn btn-ghost">Close</button>
+          <button onClick={handleDownload} className="btn btn-primary">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
@@ -182,6 +143,7 @@ export default function ExportCsvModal({ transactions, onClose }: Props) {
           </button>
         </div>
       </div>
-    </div>
+      <form method="dialog" className="modal-backdrop"><button onClick={onClose}>close</button></form>
+    </dialog>
   );
 }

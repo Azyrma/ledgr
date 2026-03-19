@@ -61,73 +61,55 @@ export default function HoldingsModal({ account, onClose, onChanged }: Props) {
   const totalCostBasis = holdings.reduce((sum, h) => sum + h.total_value, 0);
   const hasIsins = holdings.some((h) => h.isin);
 
-  // Find the oldest price update time for display
   const priceTimestamps = holdings.filter((h) => h.price_updated_at).map((h) => h.price_updated_at!);
   const lastUpdated = priceTimestamps.length > 0
     ? new Date(priceTimestamps.sort()[0]).toLocaleString("en-CH", { dateStyle: "short", timeStyle: "short" })
     : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex w-full max-w-3xl max-h-[80vh] flex-col rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
+    <dialog className="modal modal-open">
+      <div className="modal-box max-w-3xl max-h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-          <div>
-            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">
-              {account.name} — Holdings
-            </h2>
-            {holdings.length > 0 && (
-              <div className="mt-0.5 flex items-center gap-3">
-                <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                  {holdings.length} holding{holdings.length !== 1 ? "s" : ""}
-                </span>
-                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                  {formatCurrency(totalMarketValue, account.currency)}
-                </span>
-                {hasMarketPrices && totalCostBasis > 0 && (
-                  <span className={`text-sm font-medium ${totalMarketValue >= totalCostBasis ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
-                    {totalMarketValue >= totalCostBasis ? "+" : ""}{formatCurrency(totalMarketValue - totalCostBasis, account.currency)}
-                  </span>
-                )}
-              </div>
+        <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4">✕</button>
+        <h3 className="text-lg font-bold">{account.name} — Holdings</h3>
+        {holdings.length > 0 && (
+          <div className="mt-0.5 flex items-center gap-3">
+            <span className="text-sm text-base-content/60">
+              {holdings.length} holding{holdings.length !== 1 ? "s" : ""}
+            </span>
+            <span className="text-sm font-medium">
+              {formatCurrency(totalMarketValue, account.currency)}
+            </span>
+            {hasMarketPrices && totalCostBasis > 0 && (
+              <span className={`text-sm font-medium ${totalMarketValue >= totalCostBasis ? "text-success" : "text-error"}`}>
+                {totalMarketValue >= totalCostBasis ? "+" : ""}{formatCurrency(totalMarketValue - totalCostBasis, account.currency)}
+              </span>
             )}
           </div>
-          <button onClick={onClose} className="rounded-md p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
+        )}
 
         {/* Content */}
-        <div className="min-h-0 flex-1 overflow-auto">
+        <div className="mt-4 min-h-0 flex-1 overflow-auto">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <svg className="h-6 w-6 animate-spin text-zinc-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-              </svg>
+              <span className="loading loading-spinner loading-lg"></span>
             </div>
           ) : holdings.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">No holdings yet</p>
-              <p className="text-xs text-zinc-400 dark:text-zinc-500">Add stocks or funds you own in this account</p>
+              <p className="text-sm text-base-content/60">No holdings yet</p>
+              <p className="text-xs text-base-content/40">Add stocks or funds you own in this account</p>
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <table className="table table-sm">
               <thead>
-                <tr className="border-b border-zinc-200 dark:border-zinc-700">
-                  <th className="sticky top-0 bg-white px-6 py-3 text-left font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-zinc-50">Name</th>
-                  <th className="sticky top-0 bg-white px-4 py-3 text-right font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-zinc-50">Shares</th>
-                  <th className="sticky top-0 bg-white px-4 py-3 text-right font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-zinc-50">Avg Cost</th>
-                  {hasMarketPrices && (
-                    <th className="sticky top-0 bg-white px-4 py-3 text-right font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-zinc-50">Price</th>
-                  )}
-                  <th className="sticky top-0 bg-white px-4 py-3 text-right font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-zinc-50">Value</th>
-                  {hasMarketPrices && (
-                    <th className="sticky top-0 bg-white px-4 py-3 text-right font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-zinc-50">Gain/Loss</th>
-                  )}
-                  <th className="sticky top-0 bg-white px-6 py-3 dark:bg-zinc-900"><span className="sr-only">Actions</span></th>
+                <tr>
+                  <th>Name</th>
+                  <th className="text-right">Shares</th>
+                  <th className="text-right">Avg Cost</th>
+                  {hasMarketPrices && <th className="text-right">Price</th>}
+                  <th className="text-right">Value</th>
+                  {hasMarketPrices && <th className="text-right">Gain/Loss</th>}
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -137,32 +119,32 @@ export default function HoldingsModal({ account, onClose, onChanged }: Props) {
                   const gainPct = gainLoss != null && h.total_value > 0 ? (gainLoss / h.total_value) * 100 : null;
 
                   return (
-                    <tr key={h.id} className="border-b border-zinc-100 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/50">
-                      <td className="px-6 py-3">
-                        <p className="font-semibold text-zinc-900 dark:text-zinc-50">{h.name}</p>
-                        {h.isin && <p className="text-xs text-zinc-400 dark:text-zinc-500">{h.isin}</p>}
+                    <tr key={h.id} className="hover">
+                      <td>
+                        <p className="font-semibold">{h.name}</p>
+                        {h.isin && <p className="text-xs text-base-content/40">{h.isin}</p>}
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-zinc-700 dark:text-zinc-300">
+                      <td className="text-right font-mono">
                         {h.shares % 1 === 0 ? h.shares : h.shares.toFixed(4)}
                       </td>
-                      <td className="px-4 py-3 text-right font-mono text-zinc-700 dark:text-zinc-300">
+                      <td className="text-right font-mono">
                         {formatCurrency(h.avg_cost_per_share, h.currency)}
                       </td>
                       {hasMarketPrices && (
-                        <td className="px-4 py-3 text-right font-mono text-zinc-700 dark:text-zinc-300">
+                        <td className="text-right font-mono">
                           {h.current_price != null ? formatCurrency(h.current_price, h.currency) : "—"}
                         </td>
                       )}
-                      <td className="px-4 py-3 text-right font-mono">
+                      <td className="text-right font-mono">
                         {h.market_value != null && (
-                          <p className="text-xs text-zinc-400 dark:text-zinc-500">{formatCurrency(h.total_value, h.currency)}</p>
+                          <p className="text-xs text-base-content/40">{formatCurrency(h.total_value, h.currency)}</p>
                         )}
-                        <p className="font-medium text-zinc-900 dark:text-zinc-100">{formatCurrency(displayValue, h.currency)}</p>
+                        <p className="font-medium">{formatCurrency(displayValue, h.currency)}</p>
                       </td>
                       {hasMarketPrices && (
-                        <td className="px-4 py-3 text-right font-mono">
+                        <td className="text-right font-mono">
                           {gainLoss != null ? (
-                            <span className={gainLoss >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}>
+                            <span className={gainLoss >= 0 ? "text-success" : "text-error"}>
                               {gainLoss >= 0 ? "+" : ""}{formatCurrency(gainLoss, h.currency)}
                               {gainPct != null && (
                                 <span className="ml-1 text-xs">({gainPct >= 0 ? "+" : ""}{gainPct.toFixed(1)}%)</span>
@@ -171,13 +153,9 @@ export default function HoldingsModal({ account, onClose, onChanged }: Props) {
                           ) : "—"}
                         </td>
                       )}
-                      <td className="px-6 py-3">
+                      <td>
                         <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => setEditTarget(h)}
-                            className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-300"
-                            title="Edit"
-                          >
+                          <button onClick={() => setEditTarget(h)} className="btn btn-ghost btn-xs" title="Edit">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
@@ -186,7 +164,7 @@ export default function HoldingsModal({ account, onClose, onChanged }: Props) {
                           <button
                             onClick={() => handleDelete(h.id)}
                             disabled={deleting === h.id}
-                            className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-50 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                            className="btn btn-ghost btn-xs text-error"
                             title="Delete"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -205,60 +183,42 @@ export default function HoldingsModal({ account, onClose, onChanged }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-zinc-200 px-6 py-4 dark:border-zinc-800">
+        <div className="modal-action justify-between">
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowAdd(true)}
-              className="flex items-center gap-2 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-            >
+            <button onClick={() => setShowAdd(true)} className="btn btn-primary btn-sm">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
               </svg>
               Add holding
             </button>
             {hasIsins && (
-              <button
-                onClick={handleRefreshPrices}
-                disabled={refreshing}
-                className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
-                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                </svg>
+              <button onClick={handleRefreshPrices} disabled={refreshing} className="btn btn-outline btn-sm">
+                {refreshing ? <span className="loading loading-spinner loading-xs"></span> : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" />
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                  </svg>
+                )}
                 {refreshing ? "Fetching..." : "Refresh prices"}
               </button>
             )}
           </div>
           <div className="flex items-center gap-3">
             {lastUpdated && (
-              <span className="text-xs text-zinc-400 dark:text-zinc-500">
-                Prices from {lastUpdated}
-              </span>
+              <span className="text-xs text-base-content/40">Prices from {lastUpdated}</span>
             )}
-            <button type="button" onClick={onClose} className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800">
-              Close
-            </button>
+            <button type="button" onClick={onClose} className="btn btn-ghost">Close</button>
           </div>
         </div>
       </div>
+      <form method="dialog" className="modal-backdrop"><button onClick={onClose}>close</button></form>
 
-      {/* Sub-modals */}
       {showAdd && (
-        <HoldingFormModal
-          accountId={account.id}
-          onClose={() => setShowAdd(false)}
-          onSaved={handleSaved}
-        />
+        <HoldingFormModal accountId={account.id} onClose={() => setShowAdd(false)} onSaved={handleSaved} />
       )}
       {editTarget && (
-        <HoldingFormModal
-          accountId={account.id}
-          initial={editTarget}
-          onClose={() => setEditTarget(null)}
-          onSaved={handleSaved}
-        />
+        <HoldingFormModal accountId={account.id} initial={editTarget} onClose={() => setEditTarget(null)} onSaved={handleSaved} />
       )}
-    </div>
+    </dialog>
   );
 }

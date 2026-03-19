@@ -101,7 +101,7 @@ function buildCategoryPathMap(cats: FlatCat[]): Map<string, string> {
 }
 
 const INPUT_CLS =
-  "w-full rounded border border-zinc-300 bg-white px-2 py-0.5 text-sm text-zinc-800 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-200";
+  "w-full input input-bordered input-sm";
 
 // ── Memoized row — only re-renders when its own data or edit/select state changes ──────────────
 
@@ -130,7 +130,7 @@ const TransactionRow = memo(function TransactionRow({
   return (
     <div
       className={`grid grid-cols-[2.5rem_5.5rem_2fr_1fr_1.5fr_1fr] items-center px-5 py-2.5 transition-colors ${
-        isSelected ? "bg-zinc-50 dark:bg-zinc-800/60" : "hover:bg-zinc-50 dark:hover:bg-zinc-800/30"
+        isSelected ? "bg-base-200" : "hover:bg-base-200"
       }`}
     >
       {/* Checkbox */}
@@ -138,7 +138,7 @@ const TransactionRow = memo(function TransactionRow({
         type="checkbox"
         checked={isSelected}
         onChange={() => cbRef.current.toggleOne(t.id)}
-        className="h-4 w-4 rounded border-zinc-300 accent-zinc-800 dark:border-zinc-600 dark:accent-zinc-400"
+        className="checkbox checkbox-sm"
       />
 
       {/* Date */}
@@ -158,7 +158,7 @@ const TransactionRow = memo(function TransactionRow({
         ) : (
           <span
             onClick={() => cbRef.current.startEdit(t.id, "date", t.date)}
-            className="cursor-text text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+            className="cursor-text text-sm text-base-content/50 hover:text-base-content"
             title="Click to edit"
           >
             {formatDate(t.date)}
@@ -184,7 +184,7 @@ const TransactionRow = memo(function TransactionRow({
           <div className="flex min-w-0 items-center gap-1.5">
             {t.linked_transaction_id !== null && (
               <span title="Linked transfer" className="shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-base-content/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                   <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
                   <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
                 </svg>
@@ -192,7 +192,7 @@ const TransactionRow = memo(function TransactionRow({
             )}
             <span
               onClick={() => cbRef.current.startEdit(t.id, "description", t.description)}
-              className="block cursor-text truncate text-sm text-zinc-800 hover:text-zinc-600 dark:text-zinc-200 dark:hover:text-zinc-400"
+              className="block cursor-text truncate text-sm text-base-content hover:text-base-content/70"
               title={t.description}
             >
               {t.description}
@@ -239,7 +239,7 @@ const TransactionRow = memo(function TransactionRow({
             {t.account_color && (
               <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: t.account_color }} />
             )}
-            <span className="truncate text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">
+            <span className="truncate text-sm text-base-content/50 hover:text-base-content">
               {t.account_name ?? "—"}
             </span>
           </div>
@@ -254,10 +254,10 @@ const TransactionRow = memo(function TransactionRow({
             className="flex min-w-0 cursor-pointer items-center gap-1.5"
             title={`"${t.category}" was not found in your categories`}
           >
-            <span className="truncate text-sm text-red-500 hover:underline dark:text-red-400">
+            <span className="truncate text-sm text-error hover:underline">
               {t.category}
             </span>
-            <span className="shrink-0 rounded bg-red-100 px-1 py-0.5 text-xs font-medium text-red-600 dark:bg-red-900/30 dark:text-red-400">
+            <span className="badge badge-sm badge-error">
               not found
             </span>
           </div>
@@ -266,8 +266,8 @@ const TransactionRow = memo(function TransactionRow({
             onClick={(e) => cbRef.current.openCategoryPopover(t.id, t.category, t.needs_review, (e.currentTarget as HTMLElement).getBoundingClientRect())}
             className={`block cursor-pointer truncate text-sm hover:underline ${
               t.category
-                ? "text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
-                : "text-amber-500 dark:text-amber-400"
+                ? "text-base-content/70"
+                : "text-warning"
             }`}
             title={(categoryPaths.get(t.category) ?? t.category) || "Uncategorised"}
           >
@@ -286,8 +286,8 @@ const TransactionRow = memo(function TransactionRow({
           }}
           className={`shrink-0 rounded p-0.5 transition-colors ${
             t.reimbursable
-              ? "text-orange-500 dark:text-orange-400"
-              : "text-zinc-200 hover:text-zinc-400 dark:text-zinc-700 dark:hover:text-zinc-500"
+              ? "text-warning"
+              : "text-base-content/20 hover:text-base-content/40"
           }`}
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -317,13 +317,13 @@ const TransactionRow = memo(function TransactionRow({
               className="cursor-text text-right hover:underline"
               title="Click to edit"
             >
-              <span className={`block text-sm font-medium tabular-nums ${t.amount >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-800 dark:text-zinc-200"}`}>
+              <span className={`block text-sm font-medium tabular-nums ${t.amount >= 0 ? "text-success" : "text-base-content"}`}>
                 {t.account_currency && t.account_currency !== "CHF"
                   ? formatCurrency(t.amount, t.account_currency)
                   : formatCurrency(t.amount)}
               </span>
               {t.account_currency && t.account_currency !== "CHF" && (
-                <span className="block text-xs text-zinc-400 dark:text-zinc-500 tabular-nums">
+                <span className="block text-xs text-base-content/40 tabular-nums">
                   {`\u2248 ${formatCurrency(t.amount * t.exchange_rate, "CHF")}`}
                 </span>
               )}
@@ -439,7 +439,7 @@ const VirtualTransactionList = memo(function VirtualTransactionList({
               key={t.id}
               data-index={vRow.index}
               ref={virtualizer.measureElement}
-              className="border-b border-zinc-100 dark:border-zinc-800"
+              className="border-b border-base-300"
               style={{
                 position: "absolute",
                 top: 0,
@@ -744,13 +744,13 @@ export default function TransactionsPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-8 py-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Transactions</h1>
+      <header className="flex items-center justify-between border-b border-base-300 bg-base-100 px-8 py-4">
+        <h1 className="text-xl font-semibold text-base-content">Transactions</h1>
         <div className="flex items-center gap-2">
           {latestImport && (
             <button
               onClick={() => setShowUndoConfirm(true)}
-              className="flex items-center gap-2 rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-500 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-red-800/50 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+              className="btn btn-ghost btn-sm text-error"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 7v6h6" /><path d="M3 13C5 7 10 3 16 3a9 9 0 0 1 0 18H3" />
@@ -758,13 +758,13 @@ export default function TransactionsPage() {
               Undo import
             </button>
           )}
-          <button onClick={() => setShowAdd(true)} className="flex w-40 items-center justify-center gap-2 rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800">
+          <button onClick={() => setShowAdd(true)} className="btn btn-outline btn-sm w-40">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
             </svg>
             Add transaction
           </button>
-          <button onClick={() => setShowImport(true)} className="flex w-40 items-center justify-center gap-2 rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200">
+          <button onClick={() => setShowImport(true)} className="btn btn-primary btn-sm w-40">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="17 8 12 3 7 8" />
@@ -778,22 +778,22 @@ export default function TransactionsPage() {
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-8">
         {/* Review banner */}
         {uncategorisedCount > 0 && (
-          <div className="flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-5 py-4 dark:border-amber-800/60 dark:bg-amber-900/20">
+          <div className="alert alert-warning flex items-center justify-between">
             <div className="flex items-start gap-3">
-              <svg xmlns="http://www.w3.org/2000/svg" className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <svg xmlns="http://www.w3.org/2000/svg" className="mt-0.5 h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                 <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
               <div>
-                <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Some transactions need review</p>
-                <p className="mt-0.5 text-sm text-amber-600 dark:text-amber-400">
+                <p className="text-sm font-semibold">Some transactions need review</p>
+                <p className="mt-0.5 text-sm">
                   {uncategorisedCount} transaction{uncategorisedCount !== 1 ? "s" : ""} need categorization
                 </p>
               </div>
             </div>
             <button
               onClick={() => setFilters((f) => ({ ...f, needsReview: !f.needsReview }))}
-              className={`shrink-0 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${filters.needsReview ? "border-amber-400 bg-amber-100 text-amber-800 dark:border-amber-700 dark:bg-amber-800/40 dark:text-amber-300" : "border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-800/30"}`}
+              className={`shrink-0 btn btn-sm ${filters.needsReview ? "btn-warning" : "btn-ghost"}`}
             >
               {filters.needsReview ? "Show all" : "Show reviewable"}
             </button>
@@ -806,12 +806,12 @@ export default function TransactionsPage() {
         {/* Batch actions toolbar */}
         {!loading && transactions.length > 0 && (
           <div className="flex items-center justify-between px-1">
-            <span className="text-xs text-zinc-400 dark:text-zinc-500">
+            <span className="text-xs text-base-content/50">
               {transactions.length} transaction{transactions.length !== 1 ? "s" : ""}
             </span>
             <button
               onClick={handleMarkAllReimbursable}
-              className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              className="btn btn-ghost btn-xs"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
@@ -825,21 +825,21 @@ export default function TransactionsPage() {
         )}
 
         {/* Table */}
-        <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-base-300 bg-base-100">
           {/* Header */}
-          <div className="grid grid-cols-[2.5rem_5.5rem_2fr_1fr_1.5fr_1fr] items-center border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
+          <div className="grid grid-cols-[2.5rem_5.5rem_2fr_1fr_1.5fr_1fr] items-center border-b border-base-300 px-5 py-3">
             <input
               type="checkbox"
               checked={allSelected}
               ref={(el) => { if (el) el.indeterminate = someSelected; }}
               onChange={toggleAll}
-              className="h-4 w-4 rounded border-zinc-300 accent-zinc-800 dark:border-zinc-600 dark:accent-zinc-400"
+              className="checkbox checkbox-sm"
             />
             {COLUMNS.map((col) => (
               <button
                 key={col.field}
                 onClick={() => handleSort(col.field)}
-                className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wide transition-colors hover:text-zinc-600 dark:hover:text-zinc-300 ${col.field === "amount" ? "justify-end" : ""} ${sort.field === col.field ? "text-zinc-700 dark:text-zinc-300" : "text-zinc-400 dark:text-zinc-500"}`}
+                className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wide transition-colors ${col.field === "amount" ? "justify-end" : ""} ${sort.field === col.field ? "text-base-content" : "text-base-content/50"}`}
               >
                 {col.label}
                 <span className="text-sm">
@@ -851,18 +851,15 @@ export default function TransactionsPage() {
 
           {loading ? (
             <div className="flex items-center justify-center py-16">
-              <svg className="h-6 w-6 animate-spin text-zinc-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-              </svg>
+              <span className="loading loading-spinner loading-lg"></span>
             </div>
           ) : transactions.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-zinc-200 dark:text-zinc-700" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-base-content/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
                 <rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" />
               </svg>
-              <p className="text-sm font-medium text-zinc-400 dark:text-zinc-500">No transactions found</p>
-              <p className="text-xs text-zinc-300 dark:text-zinc-600">Try adjusting your filters or import a bank export</p>
+              <p className="text-sm font-medium text-base-content/50">No transactions found</p>
+              <p className="text-xs text-base-content/30">Try adjusting your filters or import a bank export</p>
             </div>
           ) : (
             <VirtualTransactionList
@@ -880,19 +877,19 @@ export default function TransactionsPage() {
       {/* Bulk action bar */}
       {selected.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20">
-          <div ref={barRef} className="relative flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-5 py-3 shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300 whitespace-nowrap">
+          <div ref={barRef} className="relative flex items-center gap-3 rounded-xl border border-base-300 bg-base-100 px-5 py-3 shadow-xl">
+            <span className="text-sm font-medium text-base-content whitespace-nowrap">
               {selected.size} transaction{selected.size !== 1 ? "s" : ""} selected
             </span>
-            <span className="text-sm text-zinc-500 dark:text-zinc-400 whitespace-nowrap">
+            <span className="text-sm text-base-content/50 whitespace-nowrap">
               {formatCurrency(selectedTxs.reduce((sum, t) => sum + t.amount * t.exchange_rate, 0))}
             </span>
-            <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-700" />
+            <div className="h-4 w-px bg-base-300" />
 
             {/* Export */}
             <button
               onClick={() => setShowExport(true)}
-              className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              className="btn btn-ghost btn-sm"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -907,7 +904,7 @@ export default function TransactionsPage() {
               <button
                 onClick={() => setShowCatPopover((v) => !v)}
                 disabled={bulkWorking}
-                className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className="btn btn-ghost btn-sm disabled:opacity-50"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                   <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
@@ -929,7 +926,7 @@ export default function TransactionsPage() {
               <button
                 onClick={handleLink}
                 disabled={bulkWorking}
-                className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className="btn btn-ghost btn-sm disabled:opacity-50"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                   <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
@@ -944,7 +941,7 @@ export default function TransactionsPage() {
               <button
                 onClick={handleUnlink}
                 disabled={bulkWorking}
-                className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className="btn btn-ghost btn-sm disabled:opacity-50"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                   <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
@@ -959,7 +956,7 @@ export default function TransactionsPage() {
             <button
               onClick={handleBulkDelete}
               disabled={bulkWorking}
-              className="flex items-center gap-1.5 rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-500 transition-colors hover:bg-red-50 disabled:opacity-50 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-900/20"
+              className="btn btn-ghost btn-sm text-error disabled:opacity-50"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="3 6 5 6 21 6" />
@@ -971,7 +968,7 @@ export default function TransactionsPage() {
             </button>
 
             {/* Dismiss */}
-            <button onClick={() => setSelected(new Set())} className="ml-1 text-zinc-300 hover:text-zinc-500 dark:text-zinc-600 dark:hover:text-zinc-400">
+            <button onClick={() => setSelected(new Set())} className="ml-1 btn btn-ghost btn-xs">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
@@ -996,70 +993,68 @@ export default function TransactionsPage() {
       {showExport && <ExportCsvModal transactions={selectedTxs} onClose={() => setShowExport(false)} />}
 
       {showUndoConfirm && latestImport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="flex w-full max-w-sm flex-col rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">Undo import?</h2>
-            </div>
-            <div className="px-6 py-4">
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                This will permanently delete{" "}
-                <span className="font-medium text-zinc-800 dark:text-zinc-200">{latestImport.count} transactions</span>
-                {" "}from{" "}
-                <span className="font-medium text-zinc-800 dark:text-zinc-200">{latestImport.account_name}</span>
-                {" "}imported from{" "}
-                <span className="font-mono text-xs text-zinc-600 dark:text-zinc-400">{latestImport.filename}</span>.
-              </p>
-            </div>
-            <div className="flex justify-end gap-2 border-t border-zinc-200 px-6 py-4 dark:border-zinc-800">
+        <div className="modal modal-open">
+          <div className="modal-box">
+            <h2 className="text-lg font-bold">Undo import?</h2>
+            <p className="py-4 text-sm">
+              This will permanently delete{" "}
+              <span className="font-medium">{latestImport.count} transactions</span>
+              {" "}from{" "}
+              <span className="font-medium">{latestImport.account_name}</span>
+              {" "}imported from{" "}
+              <span className="font-mono text-xs">{latestImport.filename}</span>.
+            </p>
+            <div className="modal-action">
               <button
                 onClick={() => setShowUndoConfirm(false)}
-                className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className="btn btn-ghost"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUndoImport}
-                className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600"
+                className="btn btn-error"
               >
                 Delete {latestImport.count} transactions
               </button>
             </div>
           </div>
+          <form method="dialog" className="modal-backdrop">
+            <button onClick={() => setShowUndoConfirm(false)}>close</button>
+          </form>
         </div>
       )}
 
       {recatDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="flex w-full max-w-sm flex-col rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
-            <div className="border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-              <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">Recategorize all?</h2>
-            </div>
-            <div className="px-6 py-4">
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                <span className="font-medium text-zinc-800 dark:text-zinc-200">{recatDialog.matchIds.length} transactions</span>
-                {" "}have the unrecognised category{" "}
-                <span className="font-mono text-xs font-medium text-red-600 dark:text-red-400">
-                  {recatDialog.originalCat}
-                </span>
-                . Do you want to recategorize all of them?
-              </p>
-            </div>
-            <div className="flex justify-end gap-2 border-t border-zinc-200 px-6 py-4 dark:border-zinc-800">
+        <div className="modal modal-open">
+          <div className="modal-box">
+            <h2 className="text-lg font-bold">Recategorize all?</h2>
+            <p className="py-4 text-sm">
+              <span className="font-medium">{recatDialog.matchIds.length} transactions</span>
+              {" "}have the unrecognised category{" "}
+              <span className="font-mono text-xs font-medium text-error">
+                {recatDialog.originalCat}
+              </span>
+              . Do you want to recategorize all of them?
+            </p>
+            <div className="modal-action">
               <button
                 onClick={() => handleRecatDialog(false)}
-                className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className="btn btn-ghost"
               >
                 Just this one
               </button>
               <button
                 onClick={() => handleRecatDialog(true)}
-                className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                className="btn btn-primary"
               >
                 All {recatDialog.matchIds.length}
               </button>
             </div>
           </div>
+          <form method="dialog" className="modal-backdrop">
+            <button onClick={() => setRecatDialog(null)}>close</button>
+          </form>
         </div>
       )}
     </div>

@@ -46,7 +46,6 @@ export default function SetCategoryPopover({ onSelect, onClose, direction = "up"
   const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
-  // Use props directly when provided — avoids an extra render cycle on mount
   const sections = sectionsProp ?? fetchedSections;
   const accounts = accountsProp ?? fetchedAccounts;
 
@@ -85,82 +84,73 @@ export default function SetCategoryPopover({ onSelect, onClose, direction = "up"
   return (
     <div
       ref={ref}
-      className={`absolute z-30 w-64 rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900 ${
+      className={`absolute z-30 w-64 rounded-xl border border-base-300 bg-base-100 shadow-xl ${
         direction === "up"
           ? "bottom-full mb-2 left-1/2 -translate-x-1/2"
           : "top-full mt-1 left-0"
       }`}
     >
-      <div className="border-b border-zinc-100 p-2 dark:border-zinc-800">
+      <div className="border-b border-base-300 p-2">
         <input
           type="text"
           placeholder="Search categories…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           autoFocus
-          className="w-full rounded-md bg-zinc-50 px-3 py-1.5 text-sm text-zinc-800 placeholder-zinc-400 focus:outline-none dark:bg-zinc-800 dark:text-zinc-200 dark:placeholder-zinc-500"
+          className="input input-sm input-ghost w-full"
         />
       </div>
 
-      <div className="max-h-56 overflow-y-auto py-1">
+      <ul className="menu menu-sm max-h-56 overflow-y-auto py-1">
         {!hasAny && (
-          <p className="px-3 py-2 text-xs text-zinc-400">No categories found</p>
+          <li className="disabled"><span className="text-xs">No categories found</span></li>
         )}
 
         {showUncategorise && (
-          <button
-            onClick={() => onSelect("")}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-amber-500 hover:bg-zinc-50 dark:text-amber-400 dark:hover:bg-zinc-800"
-          >
-            <span className="text-zinc-300 dark:text-zinc-600">✕</span>
-            Uncategorise
-          </button>
+          <li>
+            <button onClick={() => onSelect("")} className="text-warning">
+              <span className="text-base-content/30">✕</span>
+              Uncategorise
+            </button>
+          </li>
         )}
 
         {(search ? filteredSections : sections).map((section, i) => (
           <div key={section.label}>
-            {(i > 0 || showUncategorise) && (
-              <div className="mx-3 my-1 border-t border-zinc-100 dark:border-zinc-800" />
-            )}
-            <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-              {section.label}
-            </p>
+            {(i > 0 || showUncategorise) && <li className="menu-title"></li>}
+            <li className="menu-title">{section.label}</li>
             {section.options.map((o) => (
-              <button
-                key={o.value}
-                onClick={() => onSelect(o.value)}
-                className="flex w-full items-center gap-2 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                style={{ paddingLeft: `${12 + o.depth * 12}px` }}
-              >
-                {o.depth > 0 && <span className="text-zinc-300 dark:text-zinc-600">└</span>}
-                {search ? <span className="truncate">{o.path}</span> : o.label}
-              </button>
+              <li key={o.value}>
+                <button
+                  onClick={() => onSelect(o.value)}
+                  style={{ paddingLeft: `${12 + o.depth * 12}px` }}
+                >
+                  {o.depth > 0 && <span className="text-base-content/30">└</span>}
+                  {search ? <span className="truncate">{o.path}</span> : o.label}
+                </button>
+              </li>
             ))}
           </div>
         ))}
 
         {filteredAccounts.length > 0 && (
           <>
-            <div className="mx-3 my-1 border-t border-zinc-100 dark:border-zinc-800" />
-            <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-              Transfers
-            </p>
+            <li className="menu-title"></li>
+            <li className="menu-title">Transfers</li>
             {filteredAccounts.map((a) => (
-              <button
-                key={a.id}
-                onClick={() => onSelect(`Transfer: ${a.name}`)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                <span
-                  className="h-2 w-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: a.color ?? "#6366f1" }}
-                />
-                {a.name}
-              </button>
+              <li key={a.id}>
+                <button onClick={() => onSelect(`Transfer: ${a.name}`)}>
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: a.color ?? "#6366f1" }}
+                  />
+                  {a.name}
+                </button>
+              </li>
             ))}
           </>
         )}
-      </div>
+      </ul>
     </div>
   );
 }

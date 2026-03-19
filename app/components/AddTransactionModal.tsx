@@ -9,20 +9,6 @@ type Props = {
   onSaved: () => void;
 };
 
-const inputClass =
-  "w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 placeholder-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-300 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:placeholder-zinc-600 dark:focus:ring-zinc-600";
-
-function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-        {label}{required && <span className="ml-0.5 text-red-400">*</span>}
-      </label>
-      {children}
-    </div>
-  );
-}
-
 export default function AddTransactionModal({ onClose, onSaved }: Props) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [saving, setSaving] = useState(false);
@@ -84,69 +70,59 @@ export default function AddTransactionModal({ onClose, onSaved }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex w-full max-w-md flex-col rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
-          <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-50">Add Transaction</h2>
-          <button
-            onClick={onClose}
-            className="rounded-md p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
+    <dialog className="modal modal-open">
+      <div className="modal-box">
+        <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4">✕</button>
+        <h3 className="text-lg font-bold">Add Transaction</h3>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-6">
+        <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Date" required>
+            <fieldset className="fieldset">
+              <legend className="fieldset-legend">Date *</legend>
               <input
                 type="date"
                 value={form.date}
                 onChange={(e) => set("date", e.target.value)}
-                className={inputClass}
+                className="input input-bordered w-full"
               />
-            </Field>
+            </fieldset>
 
-            <Field label="Amount (CHF)" required>
+            <fieldset className="fieldset">
+              <legend className="fieldset-legend">Amount (CHF) *</legend>
               <input
                 type="number"
                 step="0.01"
                 placeholder="0.00"
                 value={form.amount}
                 onChange={(e) => set("amount", e.target.value)}
-                className={inputClass}
+                className="input input-bordered w-full"
               />
-            </Field>
+            </fieldset>
           </div>
 
-          <Field label="Description" required>
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend">Description *</legend>
             <input
               type="text"
               placeholder="e.g. Migros grocery shopping"
               value={form.description}
               onChange={(e) => set("description", e.target.value)}
-              className={inputClass}
+              className="input input-bordered w-full"
             />
-          </Field>
+          </fieldset>
 
-          <Field label="Account" required>
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend">Account *</legend>
             {accounts.length === 0 ? (
-              <p className="text-sm text-zinc-400 dark:text-zinc-500">
+              <p className="text-sm text-base-content/50">
                 No accounts found. Add one on the{" "}
-                <a href="/accounts" className="underline hover:text-zinc-700 dark:hover:text-zinc-200">
-                  Accounts page
-                </a>{" "}
-                first.
+                <a href="/accounts" className="link">Accounts page</a> first.
               </p>
             ) : (
               <select
                 value={form.accountId}
                 onChange={(e) => set("accountId", e.target.value)}
-                className={inputClass}
+                className="select select-bordered w-full"
               >
                 <option value="">Select an account…</option>
                 {accounts.map((a) => (
@@ -154,39 +130,31 @@ export default function AddTransactionModal({ onClose, onSaved }: Props) {
                 ))}
               </select>
             )}
-          </Field>
+          </fieldset>
 
-          <Field label="Category">
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend">Category</legend>
             <input
               type="text"
               placeholder="e.g. Personal:Food"
               value={form.category}
               onChange={(e) => set("category", e.target.value)}
-              className={inputClass}
+              className="input input-bordered w-full"
             />
-          </Field>
+          </fieldset>
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+          {error && <p className="text-sm text-error">{error}</p>}
         </form>
 
-        {/* Footer */}
-        <div className="flex justify-end gap-2 border-t border-zinc-200 px-6 py-4 dark:border-zinc-800">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md border border-zinc-200 px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-          >
+        <div className="modal-action">
+          <button type="button" onClick={onClose} className="btn btn-ghost">Cancel</button>
+          <button onClick={handleSubmit} disabled={saving} className="btn btn-primary">
+            {saving ? <span className="loading loading-spinner loading-sm"></span> : null}
             {saving ? "Saving…" : "Add transaction"}
           </button>
         </div>
       </div>
-    </div>
+      <form method="dialog" className="modal-backdrop"><button onClick={onClose}>close</button></form>
+    </dialog>
   );
 }
