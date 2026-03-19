@@ -23,7 +23,6 @@ export default function DashboardPage() {
   const [accounts, setAccounts]                 = useState<Account[]>([]);
   const [data, setData]                         = useState<DashboardData | null>(null);
 
-  // Fetch accounts list once (for the filter dropdown)
   useEffect(() => {
     fetch("/api/accounts")
       .then((r) => r.json())
@@ -34,7 +33,6 @@ export default function DashboardPage() {
       );
   }, []);
 
-  // Re-fetch dashboard data whenever filters change
   useEffect(() => {
     const params = new URLSearchParams({ dateRange });
     if (selectedAccounts.length > 0)
@@ -49,8 +47,8 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-8 py-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Dashboard</h1>
+      <header className="flex items-center justify-between border-b border-base-300 bg-base-100 px-8 py-4">
+        <h1 className="text-xl font-semibold">Dashboard</h1>
         <div className="flex items-center gap-2">
           <AccountFilter
             accounts={accounts}

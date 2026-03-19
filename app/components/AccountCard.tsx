@@ -69,11 +69,11 @@ export default function AccountCard({ account, holdings, onEdit, onDelete, onVie
   const costBasis = holdings?.reduce((sum, h) => sum + h.total_value, 0) ?? 0;
 
   return (
-    <div className="flex flex-col rounded-xl border border-zinc-200 bg-white overflow-hidden dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="card bg-base-100 border border-base-300 overflow-hidden">
       {/* Color bar */}
       <div className="h-1.5 w-full" style={{ backgroundColor: account.color }} />
 
-      <div className="flex flex-col gap-5 p-5">
+      <div className="card-body gap-5 p-5">
         {/* Header row */}
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -81,28 +81,19 @@ export default function AccountCard({ account, holdings, onEdit, onDelete, onVie
               {TYPE_ICONS[account.type] ?? TYPE_ICONS.checking}
             </div>
             <div>
-              <p className="font-semibold text-zinc-900 dark:text-zinc-50">{account.name}</p>
-              <p className="text-xs text-zinc-400 dark:text-zinc-500">{typeLabel} · {account.currency}</p>
+              <p className="font-semibold">{account.name}</p>
+              <p className="text-xs text-base-content/50">{typeLabel} · {account.currency}</p>
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => onEdit(account)}
-              className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-              title="Edit"
-            >
+            <button onClick={() => onEdit(account)} className="btn btn-ghost btn-xs" title="Edit">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
               </svg>
             </button>
-            <button
-              onClick={() => onDelete(account)}
-              className="rounded-md p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-              title="Delete"
-            >
+            <button onClick={() => onDelete(account)} className="btn btn-ghost btn-xs text-error" title="Delete">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
                 <path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
@@ -113,82 +104,73 @@ export default function AccountCard({ account, holdings, onEdit, onDelete, onVie
 
         {isInvestment ? (
           <>
-            {/* Portfolio value */}
             <div>
-              <p className="text-xs text-zinc-400 dark:text-zinc-500">
+              <p className="text-xs text-base-content/50">
                 {hasMarketPrices ? "Market value" : "Cost basis"}
               </p>
               <p className="mt-0.5 text-2xl font-bold" style={{ color: account.color }}>
                 {formatCurrency(portfolioValue, account.currency)}
               </p>
               {hasMarketPrices && costBasis > 0 && (
-                <p className={`mt-0.5 text-xs font-medium ${portfolioValue >= costBasis ? "text-emerald-600 dark:text-emerald-400" : "text-red-500 dark:text-red-400"}`}>
+                <p className={`mt-0.5 text-xs font-medium ${portfolioValue >= costBasis ? "text-success" : "text-error"}`}>
                   {portfolioValue >= costBasis ? "+" : ""}{formatCurrency(portfolioValue - costBasis, account.currency)}
                   {" "}({((portfolioValue - costBasis) / costBasis * 100).toFixed(1)}%)
                 </p>
               )}
             </div>
 
-            {/* Mini holdings list */}
             {holdings && holdings.length > 0 ? (
               <div className="flex flex-col gap-1.5">
                 {holdings.slice(0, 4).map((h) => (
-                  <div key={h.id} className="flex items-center justify-between rounded-md bg-zinc-50 px-3 py-1.5 dark:bg-zinc-800">
+                  <div key={h.id} className="flex items-center justify-between rounded-md bg-base-200 px-3 py-1.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">{h.ticker}</span>
-                      <span className="text-xs text-zinc-400 dark:text-zinc-500">{h.shares} shares</span>
+                      <span className="text-xs font-semibold">{h.ticker}</span>
+                      <span className="text-xs text-base-content/50">{h.shares} shares</span>
                     </div>
-                    <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                    <span className="text-xs font-medium text-base-content/70">
                       {formatCurrency(h.market_value ?? h.total_value, h.currency)}
                     </span>
                   </div>
                 ))}
                 {holdings.length > 4 && (
-                  <p className="text-xs text-zinc-400 dark:text-zinc-500 text-center">
+                  <p className="text-xs text-base-content/50 text-center">
                     +{holdings.length - 4} more
                   </p>
                 )}
               </div>
             ) : (
-              <p className="text-xs text-zinc-400 dark:text-zinc-500">No holdings yet</p>
+              <p className="text-xs text-base-content/50">No holdings yet</p>
             )}
 
-            {/* View holdings button */}
-            <button
-              onClick={() => onViewHoldings?.(account)}
-              className="rounded-md border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
+            <button onClick={() => onViewHoldings?.(account)} className="btn btn-outline btn-sm">
               Manage holdings
             </button>
           </>
         ) : (
           <>
-            {/* Balance */}
             <div>
-              <p className="text-xs text-zinc-400 dark:text-zinc-500">Current balance</p>
+              <p className="text-xs text-base-content/50">Current balance</p>
               <p className="mt-0.5 text-2xl font-bold" style={{ color: account.balance >= 0 ? account.color : "#ef4444" }}>
                 {formatCurrency(account.balance, account.currency)}
               </p>
             </div>
 
-            {/* Income / Expenses */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg bg-zinc-50 px-3 py-2.5 dark:bg-zinc-800">
-                <p className="text-xs text-zinc-400 dark:text-zinc-500">Income</p>
-                <p className="mt-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+              <div className="rounded-lg bg-base-200 px-3 py-2.5">
+                <p className="text-xs text-base-content/50">Income</p>
+                <p className="mt-0.5 text-sm font-semibold text-success">
                   {formatCurrency(account.income, account.currency)}
                 </p>
               </div>
-              <div className="rounded-lg bg-zinc-50 px-3 py-2.5 dark:bg-zinc-800">
-                <p className="text-xs text-zinc-400 dark:text-zinc-500">Expenses</p>
-                <p className="mt-0.5 text-sm font-semibold text-red-500 dark:text-red-400">
+              <div className="rounded-lg bg-base-200 px-3 py-2.5">
+                <p className="text-xs text-base-content/50">Expenses</p>
+                <p className="mt-0.5 text-sm font-semibold text-error">
                   {formatCurrency(account.expenses, account.currency)}
                 </p>
               </div>
             </div>
 
-            {/* Footer */}
-            <p className="text-xs text-zinc-300 dark:text-zinc-600">
+            <p className="text-xs text-base-content/30">
               {account.transaction_count} transaction{account.transaction_count !== 1 ? "s" : ""}
             </p>
           </>
