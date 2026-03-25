@@ -65,7 +65,7 @@ export default function SetCategoryPopover({ onSelect, onClose, direction = "up"
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      if (ref.current && !e.composedPath().includes(ref.current)) onClose();
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -101,56 +101,61 @@ export default function SetCategoryPopover({ onSelect, onClose, direction = "up"
         />
       </div>
 
-      <ul className="menu menu-sm max-h-56 overflow-y-auto py-1">
+      <div className="max-h-56 overflow-y-auto py-1">
         {!hasAny && (
-          <li className="disabled"><span className="text-xs">No categories found</span></li>
+          <p className="px-3 py-2 text-xs text-base-content/40">No categories found</p>
         )}
 
         {showUncategorise && (
-          <li>
-            <button onClick={() => onSelect("")} className="text-warning">
-              <span className="text-base-content/30">✕</span>
-              Uncategorise
-            </button>
-          </li>
+          <button
+            onClick={() => onSelect("")}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-warning hover:bg-base-200"
+          >
+            <span className="text-base-content/30">✕</span>
+            Uncategorise
+          </button>
         )}
 
         {(search ? filteredSections : sections).map((section, i) => (
           <div key={section.label}>
-            {(i > 0 || showUncategorise) && <li className="menu-title"></li>}
-            <li className="menu-title">{section.label}</li>
+            {(i > 0 || showUncategorise) && <hr className="border-base-300 my-1" />}
+            <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-base-content/40">
+              {section.label}
+            </p>
             {section.options.map((o) => (
-              <li key={o.value}>
-                <button
-                  onClick={() => onSelect(o.value)}
-                  style={{ paddingLeft: `${12 + o.depth * 12}px` }}
-                >
-                  {o.depth > 0 && <span className="text-base-content/30">└</span>}
-                  {search ? <span className="truncate">{o.path}</span> : o.label}
-                </button>
-              </li>
+              <button
+                key={o.value}
+                onClick={() => onSelect(o.value)}
+                className="flex w-full items-center gap-1.5 py-1.5 pr-3 text-left text-sm hover:bg-base-200"
+                style={{ paddingLeft: `${12 + o.depth * 12}px` }}
+              >
+                {o.depth > 0 && <span className="text-base-content/30">└</span>}
+                {search ? <span className="truncate">{o.path}</span> : o.label}
+              </button>
             ))}
           </div>
         ))}
 
         {filteredAccounts.length > 0 && (
-          <>
-            <li className="menu-title"></li>
-            <li className="menu-title">Transfers</li>
+          <div>
+            <hr className="border-base-300 my-1" />
+            <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-base-content/40">Transfers</p>
             {filteredAccounts.map((a) => (
-              <li key={a.id}>
-                <button onClick={() => onSelect(`Transfer: ${a.name}`)}>
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: a.color ?? "#6366f1" }}
-                  />
-                  {a.name}
-                </button>
-              </li>
+              <button
+                key={a.id}
+                onClick={() => onSelect(`Transfer: ${a.name}`)}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-base-200"
+              >
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: a.color ?? "#6366f1" }}
+                />
+                {a.name}
+              </button>
             ))}
-          </>
+          </div>
         )}
-      </ul>
+      </div>
     </div>
   );
 }
