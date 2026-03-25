@@ -9,6 +9,10 @@ const DB_PATH  = path.join(DATA_DIR, "finance.db");
 
 let db: Database.Database;
 
+export function sqlPlaceholders(count: number, separator = ","): string {
+  return Array.from({ length: count }, () => "?").join(separator);
+}
+
 export function getDb(): Database.Database {
   if (!db) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
