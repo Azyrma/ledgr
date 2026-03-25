@@ -15,42 +15,36 @@ OUTPUT_DIR = "output"
 # Lookup table built from Transactions.csv. Matched as case-insensitive substrings.
 CATEGORY_LOOKUP = {
     # Personal:Food
-    "Coop":                             "Personal:Food",
-    "Migros":                           "Personal:Food",
-    "Volg":                             "Personal:Food",
-    "Too Good To Go":                   "Personal:Food",
-    "SV (Schweiz) AG":                  "Personal:Food",
-    "Compass Group":                    "Personal:Food",
-    "Hot Pasta AG":                     "Personal:Food",
-    "The Lemon Grass":                  "Personal:Food",
-    "KEBAB HAUS":                       "Personal:Food",
-    "McDonald":                         "Personal:Food",
-    "Selecta AG":                       "Personal:Food",
+    "Coop":                             "Needs: Groceries",
+    "Migros":                           "Needs: Groceries",
+    "Volg":                             "Needs: Groceries",
+    "Too Good To Go":                   "Wants: Entertainment: Eating Out",
+    "SV (Schweiz) AG":                  "Wants: Entertainment: Eating Out",
+    "Compass Group":                    "Wants: Entertainment: Eating Out",
+    "Hot Pasta AG":                     "Wants: Entertainment: Eating Out",
+    "The Lemon Grass":                  "Wants: Entertainment: Eating Out",
+    "KEBAB HAUS":                       "Wants: Entertainment: Eating Out",
+    "McDonald":                         "Wants: Entertainment: Eating Out",
+    "Selecta AG":                       "Wants: Entertainment: Eating Out",
 
     # Personal:Travel/Transport
-    "SBB Mobile":                       "Personal:Travel/Transport",
-    "URBAN CONNECT":                    "Personal:Travel/Transport",
-    "Zürcher Verkehrsverbund":          "Personal:Travel/Transport",
-    "Mobility Kundenrechnungen":        "Personal:Travel/Transport",
+    "SBB Mobile":                       "Needs: Transportation: Public Transportation",
+    "URBAN CONNECT":                    "Needs: Transportation: Public Transportation",
+    "Zürcher Verkehrsverbund":          "Needs: Transportation: Public Transportation",
+    "Mobility Kundenrechnungen":        "Needs: Transportation: Public Transportation",
 
     # Personal:Clothes
-    "Zalando":                          "Personal:Clothes",
+    "Zalando":                          "Wants: Clothing",
 
     # Bills:Phone
-    "Sunrise GmbH":                     "Bills:Phone",
-    "Galaxus Abos":                     "Bills:Phone",
-
-    # Due From Parents CHF
-    "Luzerner Pensionskasse":           "Due From Parents CHF",
+    "Sunrise GmbH":                     "Needs: Phone",
+    "Galaxus Abos":                     "Needs: Phone",
 
     # Education:VIS
-    "Verein der Informatik Studierenden": "Education:VIS",
+    "Verein der Informatik Studierenden": "Needs: Education: VIS Expenses",
 
     # Salary
-    "Gutschrift von ETH Zürich":        "Salary",
-
-    # Tax
-    "Stadt Zuerich Steueramt":          "Tax",
+    "Gutschrift von ETH Zürich":        "Salary"
 }
 _LOOKUP_LOWER = {k.lower(): v for k, v in CATEGORY_LOOKUP.items()}
 
