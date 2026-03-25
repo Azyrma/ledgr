@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, sqlPlaceholders } from "@/lib/db";
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -8,7 +8,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "No ids provided." }, { status: 400 });
 
     const db = getDb();
-    const placeholders = ids.map(() => "?").join(", ");
+    const placeholders = sqlPlaceholders(ids.length, ", ");
 
     if (reimbursable !== undefined) {
       db.prepare(`UPDATE transactions SET reimbursable = ? WHERE id IN (${placeholders})`)
@@ -31,7 +31,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "No ids provided." }, { status: 400 });
 
     const db = getDb();
-    const placeholders = ids.map(() => "?").join(", ");
+    const placeholders = sqlPlaceholders(ids.length, ", ");
     db.prepare(`DELETE FROM transactions WHERE id IN (${placeholders})`).run(...ids);
 
     return NextResponse.json({ deleted: ids.length });
