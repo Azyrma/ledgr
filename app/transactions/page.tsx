@@ -506,6 +506,9 @@ export default function TransactionsPage() {
   const [latestImport, setLatestImport] = useState<LatestImport>(null);
   const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showMarkParentsConfirm, setShowMarkParentsConfirm] = useState(false);
+  const [reimbursableUndo, setReimbursableUndo] = useState<{ ids: number[]; prevStates: Map<number, number> } | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const catPortalRef = useRef<CatPortalHandle>(null);
   const barRef = useRef<HTMLDivElement>(null);
 
@@ -690,13 +693,36 @@ export default function TransactionsPage() {
   }
 
   function handleMarkAllReimbursable() {
+    if (transactions.length === 0) return;
+    setShowMarkParentsConfirm(true);
+  }
+
+  function confirmMarkAllReimbursable() {
+    setShowMarkParentsConfirm(false);
     const ids = transactions.map((t) => t.id);
-    if (ids.length === 0) return;
+    const prevStates = new Map(transactions.map((t) => [t.id, t.reimbursable]));
     setTransactions(prev => prev.map(t => ({ ...t, reimbursable: 1 })));
     fetch("/api/transactions/bulk", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids, reimbursable: true }),
+    }).catch(() => refresh());
+
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setReimbursableUndo({ ids, prevStates });
+    undoTimerRef.current = setTimeout(() => setReimbursableUndo(null), 10000);
+  }
+
+  function handleUndoMarkReimbursable() {
+    if (!reimbursableUndo) return;
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setReimbursableUndo(null);
+    const { ids, prevStates } = reimbursableUndo;
+    setTransactions(prev => prev.map(t => prevStates.has(t.id) ? { ...t, reimbursable: prevStates.get(t.id)! } : t));
+    fetch("/api/transactions/bulk", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, reimbursable: false }),
     }).catch(() => refresh());
   }
 
@@ -1026,6 +1052,35 @@ export default function TransactionsPage() {
           <form method="dialog" className="modal-backdrop">
             <button onClick={() => setShowUndoConfirm(false)}>close</button>
           </form>
+        </div>
+      )}
+
+      {showMarkParentsConfirm && (
+        <div className="modal modal-open">
+          <div className="modal-box">
+            <h2 className="text-lg font-bold">Mark as owed by parents?</h2>
+            <p className="py-4 text-sm">
+              This will mark all{" "}
+              <span className="font-medium">{transactions.length} transaction{transactions.length !== 1 ? "s" : ""}</span>
+              {" "}in the current view as owed by parents.
+            </p>
+            <div className="modal-action">
+              <button onClick={() => setShowMarkParentsConfirm(false)} className="btn btn-ghost">Cancel</button>
+              <button onClick={confirmMarkAllReimbursable} className="btn btn-primary">Confirm</button>
+            </div>
+          </div>
+          <form method="dialog" className="modal-backdrop">
+            <button onClick={() => setShowMarkParentsConfirm(false)}>close</button>
+          </form>
+        </div>
+      )}
+
+      {reimbursableUndo && (
+        <div className="toast toast-bottom toast-center z-50">
+          <div className="alert shadow-lg flex items-center gap-3">
+            <span className="text-sm">Marked {reimbursableUndo.ids.length} transaction{reimbursableUndo.ids.length !== 1 ? "s" : ""} as owed by parents.</span>
+            <button onClick={handleUndoMarkReimbursable} className="btn btn-sm btn-ghost">Undo</button>
+          </div>
         </div>
       )}
 
