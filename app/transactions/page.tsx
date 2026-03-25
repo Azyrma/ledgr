@@ -351,12 +351,16 @@ const CategoryPopoverPortal = memo(function CategoryPopoverPortal({
   cbRef: { current: RowCallbacks };
 }) {
   const [target, setTarget] = useState<CatPopoverTarget>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   handleRef.current = { open: setTarget, close: () => setTarget(null) };
 
-  // Close on scroll since fixed position becomes stale
+  // Close on scroll since fixed position becomes stale, but ignore scrolls inside the popover
   useEffect(() => {
     if (!target) return;
-    const onScroll = () => setTarget(null);
+    const onScroll = (e: Event) => {
+      if (popoverRef.current?.contains(e.target as Node)) return;
+      setTarget(null);
+    };
     window.addEventListener("scroll", onScroll, true);
     return () => window.removeEventListener("scroll", onScroll, true);
   }, [target]);
@@ -370,7 +374,7 @@ const CategoryPopoverPortal = memo(function CategoryPopoverPortal({
     : target.rect.bottom + 4;
 
   return (
-    <div className="fixed z-50" style={{ top, left: target.rect.left }}>
+    <div ref={popoverRef} className="fixed z-50" style={{ top, left: target.rect.left }}>
       <SetCategoryPopover
         direction="down"
         sections={sections}

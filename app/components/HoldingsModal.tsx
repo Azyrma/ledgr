@@ -68,7 +68,7 @@ export default function HoldingsModal({ account, onClose, onChanged }: Props) {
 
   return (
     <dialog className="modal modal-open">
-      <div className="modal-box max-w-3xl max-h-[80vh] flex flex-col">
+      <div className="modal-box w-fit max-w-[80vw] max-h-[80vh] flex flex-col">
         {/* Header */}
         <button onClick={onClose} className="btn btn-sm btn-circle btn-ghost absolute right-4 top-4">✕</button>
         <h3 className="text-lg font-bold">{account.name} — Holdings</h3>
