@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, sqlPlaceholders } from "@/lib/db";
 import { buildCategoryNodeMap, getCategoryPath, type FlatCat } from "@/lib/categories";
 
 function toIso(d: Date): string {
@@ -53,7 +53,7 @@ function descendantPaths(
 // negate=false → uses  (t.amount * a.exchange_rate)  (income: inflows are positive)
 function catSumExpr(cats: string[], alias: string, negate = false): { sql: string; params: string[] } {
   if (cats.length === 0) return { sql: `0 AS ${alias}`, params: [] };
-  const ph   = cats.map(() => "?").join(",");
+  const ph   = sqlPlaceholders(cats.length);
   const expr = negate ? "-(t.amount * a.exchange_rate)" : "(t.amount * a.exchange_rate)";
   return {
     sql: `COALESCE(SUM(CASE WHEN t.category IN (${ph}) THEN ${expr} ELSE 0 END), 0) AS ${alias}`,
@@ -109,10 +109,10 @@ export function GET(request: NextRequest) {
 
     // Reusable SQL fragments
     const acctTransC = accountIds.length > 0
-      ? `AND t.account_id IN (${accountIds.map(() => "?").join(",")})`
+      ? `AND t.account_id IN (${sqlPlaceholders(accountIds.length)})`
       : "";
     const acctAcctC = accountIds.length > 0
-      ? `WHERE a.id IN (${accountIds.map(() => "?").join(",")})`
+      ? `WHERE a.id IN (${sqlPlaceholders(accountIds.length)})`
       : "";
     const acctP = accountIds;
 
@@ -185,7 +185,7 @@ export function GET(request: NextRequest) {
       FROM transactions t
       LEFT JOIN accounts a ON a.id = t.account_id
       WHERE t.linked_transaction_id IS NULL AND t.category != '' ${periodC} ${acctTransC}
-        AND t.category IN (${expCats.length > 0 ? expCats.map(() => "?").join(",") : "SELECT NULL WHERE 0"})
+        AND t.category IN (${expCats.length > 0 ? sqlPlaceholders(expCats.length) : "SELECT NULL WHERE 0"})
       GROUP BY t.category
       ORDER BY amount DESC
     `).all(...periodP, ...acctP, ...expCats) as { category: string; amount: number }[];
