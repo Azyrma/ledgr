@@ -12,6 +12,7 @@ export type Filters = {
   maxAmount: string;
   needsReview: boolean;
   reimbursable: boolean;
+  transfers: boolean;
 };
 
 export const DEFAULT_FILTERS: Filters = {
@@ -24,6 +25,7 @@ export const DEFAULT_FILTERS: Filters = {
   maxAmount: "",
   needsReview: false,
   reimbursable: false,
+  transfers: false,
 };
 
 type Account = { id: number; name: string };
@@ -60,7 +62,8 @@ export default function TransactionFilters({ filters, accounts, categories, onCh
     filters.minAmount ||
     filters.maxAmount ||
     filters.needsReview ||
-    filters.reimbursable;
+    filters.reimbursable ||
+    filters.transfers;
 
   return (
     <div className="card bg-base-100 border border-base-300">
@@ -104,67 +107,62 @@ export default function TransactionFilters({ filters, accounts, categories, onCh
           </fieldset>
         </div>
 
-        {/* Row 2: Category + Account + Min + Max + Needs review + Clear */}
-        <div className="flex items-end gap-4">
-          <div className="flex-1">
-            <fieldset className="fieldset">
-              <legend className="fieldset-legend">Category</legend>
-              <select
-                value={filters.category}
-                onChange={(e) => set("category", e.target.value)}
-                className="select select-bordered w-full"
-              >
-                <option value="">All categories</option>
-                {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </fieldset>
-          </div>
+        {/* Row 2: Category + Account + Min + Max */}
+        <div className="grid grid-cols-4 gap-4">
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend">Category</legend>
+            <select
+              value={filters.category}
+              onChange={(e) => set("category", e.target.value)}
+              className="select select-bordered w-full"
+            >
+              <option value="">All categories</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </fieldset>
 
-          <div className="flex-1">
-            <fieldset className="fieldset">
-              <legend className="fieldset-legend">Account</legend>
-              <select
-                value={filters.account}
-                onChange={(e) => set("account", e.target.value)}
-                className="select select-bordered w-full"
-              >
-                <option value="">All accounts</option>
-                {accounts.map((a) => (
-                  <option key={a.id} value={String(a.id)}>{a.name}</option>
-                ))}
-              </select>
-            </fieldset>
-          </div>
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend">Account</legend>
+            <select
+              value={filters.account}
+              onChange={(e) => set("account", e.target.value)}
+              className="select select-bordered w-full"
+            >
+              <option value="">All accounts</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={String(a.id)}>{a.name}</option>
+              ))}
+            </select>
+          </fieldset>
 
-          <div className="flex-1">
-            <fieldset className="fieldset">
-              <legend className="fieldset-legend">Min amount</legend>
-              <input
-                type="number"
-                placeholder="0.00"
-                value={filters.minAmount}
-                onChange={(e) => set("minAmount", e.target.value)}
-                className="input input-bordered w-full"
-              />
-            </fieldset>
-          </div>
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend">Min amount</legend>
+            <input
+              type="number"
+              placeholder="0.00"
+              value={filters.minAmount}
+              onChange={(e) => set("minAmount", e.target.value)}
+              className="input input-bordered w-full"
+            />
+          </fieldset>
 
-          <div className="flex-1">
-            <fieldset className="fieldset">
-              <legend className="fieldset-legend">Max amount</legend>
-              <input
-                type="number"
-                placeholder="0.00"
-                value={filters.maxAmount}
-                onChange={(e) => set("maxAmount", e.target.value)}
-                className="input input-bordered w-full"
-              />
-            </fieldset>
-          </div>
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend">Max amount</legend>
+            <input
+              type="number"
+              placeholder="0.00"
+              value={filters.maxAmount}
+              onChange={(e) => set("maxAmount", e.target.value)}
+              className="input input-bordered w-full"
+            />
+          </fieldset>
+        </div>
 
-          <div className="flex items-center gap-2 pb-2.5">
+        {/* Row 3: Checkboxes + Clear */}
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
             <input
               id="needs-review"
               type="checkbox"
@@ -177,7 +175,7 @@ export default function TransactionFilters({ filters, accounts, categories, onCh
             </label>
           </div>
 
-          <div className="flex items-center gap-2 pb-2.5">
+          <div className="flex items-center gap-2">
             <input
               id="reimbursable"
               type="checkbox"
@@ -190,10 +188,23 @@ export default function TransactionFilters({ filters, accounts, categories, onCh
             </label>
           </div>
 
+          <div className="flex items-center gap-2">
+            <input
+              id="transfers"
+              type="checkbox"
+              checked={filters.transfers}
+              onChange={(e) => set("transfers", e.target.checked)}
+              className="checkbox checkbox-sm"
+            />
+            <label htmlFor="transfers" className="cursor-pointer whitespace-nowrap text-sm">
+              Transfers
+            </label>
+          </div>
+
           {isActive && (
             <button
               onClick={() => onChange(DEFAULT_FILTERS)}
-              className="btn btn-ghost btn-sm pb-2.5"
+              className="btn btn-ghost btn-sm"
             >
               Clear
             </button>

@@ -13,6 +13,7 @@ export function GET(request: NextRequest) {
     const maxAmount   = searchParams.get("maxAmount")   ?? "";
     const needsReview    = searchParams.get("needsReview")    === "true";
     const reimbursable   = searchParams.get("reimbursable")   === "true";
+    const transfers      = searchParams.get("transfers")      === "true";
     const sortField   = searchParams.get("sort") ?? "date";
     const sortDir     = searchParams.get("dir")  === "asc" ? "ASC" : "DESC";
 
@@ -34,6 +35,7 @@ export function GET(request: NextRequest) {
     if (maxAmount)   { conditions.push("t.amount <= ?");                params.push(Number(maxAmount)); }
     if (needsReview)  { conditions.push("(t.category IS NULL OR t.category = '' OR t.needs_review = 1)"); }
     if (reimbursable) { conditions.push("t.reimbursable = 1"); }
+    if (transfers)    { conditions.push("(t.linked_transaction_id IS NOT NULL OR t.category LIKE 'Transfer:%')"); }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
