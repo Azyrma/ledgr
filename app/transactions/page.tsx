@@ -129,7 +129,8 @@ const TransactionRow = memo(function TransactionRow({
 
   return (
     <div
-      className={`grid grid-cols-[2.5rem_5.5rem_2fr_1fr_1.5fr_1fr] items-center px-5 py-2.5 transition-colors ${
+      style={{ height: ROW_HEIGHT }}
+      className={`grid grid-cols-[2.5rem_5.5rem_2fr_1fr_1.5fr_1fr] items-center overflow-hidden px-5 transition-colors ${
         isSelected ? "bg-base-200" : "hover:bg-base-200"
       }`}
     >
@@ -482,6 +483,7 @@ function matchesFilters(t: Transaction, f: Filters): boolean {
   if (f.maxAmount  && t.amount > Number(f.maxAmount))    return false;
   if (f.needsReview  && t.category && t.needs_review !== 1) return false;
   if (f.reimbursable && t.reimbursable !== 1)            return false;
+  if (f.transfers    && t.linked_transaction_id === null && !t.category.startsWith("Transfer:")) return false;
   return true;
 }
 
@@ -531,6 +533,7 @@ export default function TransactionsPage() {
     if (f.maxAmount)   params.set("maxAmount",   f.maxAmount);
     if (f.needsReview)  params.set("needsReview",  "true");
     if (f.reimbursable) params.set("reimbursable", "true");
+    if (f.transfers)    params.set("transfers",    "true");
     params.set("sort", s.field);
     params.set("dir",  s.dir);
 
