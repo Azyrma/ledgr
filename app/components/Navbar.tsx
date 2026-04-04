@@ -81,7 +81,7 @@ export default function Navbar() {
         </span>
       </div>
 
-      <ul className="menu flex-1 gap-1 p-3">
+      <ul className="menu w-full flex-1 gap-1 p-3">
         {navItems.map((item) => (
           <li key={item.href}>
             <Link
@@ -96,7 +96,7 @@ export default function Navbar() {
       </ul>
 
       <div className="border-t border-base-300 p-3">
-        <ul className="menu">
+        <ul className="menu w-full">
           <li>
             <button onClick={toggleTheme}>
               {isDark ? (
