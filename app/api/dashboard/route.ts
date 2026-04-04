@@ -190,8 +190,10 @@ export function GET(request: NextRequest) {
       ORDER BY amount DESC
     `).all(...periodP, ...acctP, ...expCats) as { category: string; amount: number }[];
 
-    // ── This week ─────────────────────────────────────────────────────────
-    const weekFrom = toIso(addDays(now, -7));
+    // ── This week (Mon–today) ─────────────────────────────────────────────
+    const dow = now.getDay(); // 0=Sun … 6=Sat
+    const daysFromMonday = dow === 0 ? 6 : dow - 1;
+    const weekFrom = toIso(addDays(now, -daysFromMonday));
     const week = sumPeriod(db, incCats, expCats, savCats,
       `AND t.date >= ? AND t.date <= ? ${acctTransC}`, [weekFrom, today, ...acctP]);
 
