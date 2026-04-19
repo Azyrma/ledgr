@@ -54,9 +54,9 @@ export default function FinancialHealth({ data }: Props) {
       : null;
 
   return (
-    <div className="card h-full bg-base-100 border border-base-300">
+    <div className="v2-card h-full flex flex-col">
       <div className="card-body p-6">
-        <h2 className="mb-2 text-sm font-semibold">Financial Health</h2>
+        <h2 className="mb-3 display-serif" style={{ fontSize: 17 }}>Financial <em className="display-italic" style={{ color: "var(--brand)" }}>health</em></h2>
 
         <div className="divide-y divide-base-300">
           {/* Savings Rate */}
