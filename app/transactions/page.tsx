@@ -7,6 +7,7 @@ import AddTransactionModal from "../components/AddTransactionModal";
 import ExportCsvModal from "../components/ExportCsvModal";
 import TransactionFilters, { DEFAULT_FILTERS, type Filters } from "../components/TransactionFilters";
 import SetCategoryPopover, { buildSections, type Section } from "../components/SetCategoryPopover";
+import PageHeader, { SplitTitle } from "../components/PageHeader";
 import { formatCurrency } from "@/lib/utils";
 import { buildCategoryNodeMap, getCategoryPath, type FlatCat } from "@/lib/categories";
 
@@ -777,38 +778,40 @@ export default function TransactionsPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-base-300 bg-base-100 px-8 py-4">
-        <h1 className="text-xl font-semibold text-base-content">Transactions</h1>
-        <div className="flex items-center gap-2">
-          {latestImport && (
-            <button
-              onClick={() => setShowUndoConfirm(true)}
-              className="btn btn-ghost btn-sm text-error"
-            >
+      <PageHeader
+        title={<SplitTitle left="Trans" right="actions" />}
+        actions={
+          <>
+            {latestImport && (
+              <button
+                onClick={() => setShowUndoConfirm(true)}
+                className="btn btn-ghost btn-sm text-error"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 7v6h6" /><path d="M3 13C5 7 10 3 16 3a9 9 0 0 1 0 18H3" />
+                </svg>
+                Undo import
+              </button>
+            )}
+            <button onClick={() => setShowAdd(true)} className="btn btn-outline btn-sm w-40">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 7v6h6" /><path d="M3 13C5 7 10 3 16 3a9 9 0 0 1 0 18H3" />
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
               </svg>
-              Undo import
+              Add transaction
             </button>
-          )}
-          <button onClick={() => setShowAdd(true)} className="btn btn-outline btn-sm w-40">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Add transaction
-          </button>
-          <button onClick={() => setShowImport(true)} className="btn btn-primary btn-sm w-40">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-            Import
-          </button>
-        </div>
-      </header>
+            <button onClick={() => setShowImport(true)} className="btn btn-primary btn-sm w-40">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              Import
+            </button>
+          </>
+        }
+      />
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 p-8">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 px-9 pb-8 pt-2">
         {/* Review banner */}
         {uncategorisedCount > 0 && (
           <div className="alert alert-warning flex items-center justify-between">
@@ -858,7 +861,7 @@ export default function TransactionsPage() {
         )}
 
         {/* Table */}
-        <div className="flex min-h-0 flex-1 flex-col rounded-lg border border-base-300 bg-base-100">
+        <div className="v2-card flex min-h-0 flex-1 flex-col">
           {/* Header */}
           <div className="grid grid-cols-[2.5rem_5.5rem_2fr_1fr_1.5fr_1fr] items-center border-b border-base-300 px-5 py-3">
             <input
