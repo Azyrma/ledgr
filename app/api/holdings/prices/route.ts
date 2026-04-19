@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const quote: any = await yf.quote(symbol);
+        const quote: any = await yf.quote(symbol as string);
         if (quote && quote.regularMarketPrice != null) {
           db.prepare(
             "UPDATE holdings SET current_price = ?, price_updated_at = ? WHERE id = ?"

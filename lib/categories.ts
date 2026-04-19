@@ -1,7 +1,7 @@
 const CATEGORY_LOOKUP: Record<string, string> = {
-  "coop":                               "Needs: Groceries",
-  "migros":                             "Needs: Groceries",
-  "volg":                               "Needs: Groceries",
+  "coop":                               "Needs: General: Groceries",
+  "migros":                             "Needs: General: Groceries",
+  "volg":                               "Needs: General: Groceries",
   "too good to go":                     "Wants: Entertainment: Eating out",
   "sv (schweiz) ag":                    "Wants: Entertainment: Eating out",
   "compass group":                      "Wants: Entertainment: Eating out",
@@ -14,11 +14,11 @@ const CATEGORY_LOOKUP: Record<string, string> = {
   "urban connect":                      "Needs: Transportation: Public Transportation",
   "zürcher verkehrsverbund":            "Needs: Transportation: Public Transportation",
   "mobility kundenrechnungen":          "Needs: Transportation: Public Transportation",
-  "zalando":                            "Wants: Clothing",
-  "sunrise gmbh":                       "Needs: Phone",
-  "galaxus abos":                       "Needs: Phone",
-  "verein der informatik studierenden": "Needs: Education: VIS Expenses",
-  "gutschrift von eth zürich":          "Salary",
+  "zalando":                            "Wants: General: Clothing",
+  "sunrise gmbh":                       "Needs: General: Phone",
+  "galaxus abos":                       "Needs: General: Phone",
+  "verein der informatik studierenden": "Needs: Education: Student Association",
+  "gutschrift von eth zürich":          "Income: Salary",
 };
 
 export function lookupCategory(description: string): string {
