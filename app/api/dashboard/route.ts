@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type Database from "better-sqlite3";
 import { getDb, sqlPlaceholders } from "@/lib/db";
 import { buildCategoryNodeMap, getCategoryPath, type FlatCat } from "@/lib/categories";
 
@@ -170,6 +171,26 @@ export function GET(request: NextRequest) {
       return { month: label, income: row?.income ?? 0, expenses: row?.expenses ?? 0 };
     });
 
+    // ── 12-month net-worth trajectory (end-of-month balances) ─────────────
+    const deltaRows = db.prepare(`
+      SELECT strftime('%Y-%m', t.date) AS ym,
+             COALESCE(SUM(t.amount * a.exchange_rate), 0) AS delta
+      FROM transactions t
+      LEFT JOIN accounts a ON a.id = t.account_id
+      WHERE t.linked_transaction_id IS NULL ${acctTransC}
+      GROUP BY ym
+    `).all(...acctP) as { ym: string; delta: number }[];
+    const deltaMap = new Map(deltaRows.map((r) => [r.ym, r.delta]));
+
+    const netWorth: number[] = new Array(12).fill(0);
+    let subtract = 0;
+    for (let i = 11; i >= 0; i--) {
+      netWorth[i] = balance - subtract;
+      const d  = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      subtract += deltaMap.get(ym) ?? 0;
+    }
+
     // ── Same period last year ─────────────────────────────────────────────
     const lyFrom = from
       ? toIso(new Date(new Date(from).setFullYear(new Date(from).getFullYear() - 1)))
@@ -197,6 +218,47 @@ export function GET(request: NextRequest) {
     const week = sumPeriod(db, incCats, expCats, savCats,
       `AND t.date >= ? AND t.date <= ? ${acctTransC}`, [weekFrom, today, ...acctP]);
 
+    // ── Recent transactions (last 8, across all accounts) ─────────────────
+    const recentRows = db.prepare(`
+      SELECT t.id, t.date, t.description, t.amount, t.category,
+             a.name AS account_name, a.color AS account_color, a.currency
+      FROM transactions t
+      LEFT JOIN accounts a ON a.id = t.account_id
+      WHERE t.linked_transaction_id IS NULL ${acctTransC}
+      ORDER BY t.date DESC, t.id DESC
+      LIMIT 8
+    `).all(...acctP) as {
+      id: number; date: string; description: string; amount: number;
+      category: string; account_name: string; account_color: string; currency: string;
+    }[];
+
+    // ── Accounts overview (balance per account) ───────────────────────────
+    const accountRows = db.prepare(`
+      SELECT a.id, a.name, a.type, a.currency, a.color,
+             COALESCE(a.initial_balance + SUM(t.amount), a.initial_balance) AS balance
+      FROM accounts a
+      LEFT JOIN transactions t ON t.account_id = a.id
+      ${acctAcctC}
+      GROUP BY a.id
+      ORDER BY a.name
+    `).all(...acctP) as {
+      id: number; name: string; type: string; currency: string; color: string; balance: number;
+    }[];
+
+    // ── Upcoming transactions (future-dated) ──────────────────────────────
+    const upcomingRows = db.prepare(`
+      SELECT t.id, t.date, t.description, t.amount, t.category,
+             a.name AS account_name, a.currency
+      FROM transactions t
+      LEFT JOIN accounts a ON a.id = t.account_id
+      WHERE t.date > ? AND t.linked_transaction_id IS NULL ${acctTransC}
+      ORDER BY t.date ASC
+      LIMIT 6
+    `).all(today, ...acctP) as {
+      id: number; date: string; description: string; amount: number;
+      category: string; account_name: string; currency: string;
+    }[];
+
     return NextResponse.json({
       summary: {
         balance,
@@ -205,6 +267,7 @@ export function GET(request: NextRequest) {
         savings:  period.savings,
       },
       chart,
+      netWorth: { values: netWorth, labels: chart.map((c) => c.month) },
       trends: {
         thisWeekExpenses:           week.expenses,
         periodIncome:               period.income,
@@ -215,17 +278,9 @@ export function GET(request: NextRequest) {
         samePeriodLastYearSavings:  ly.savings,
       },
       categories: catRows.map((r) => ({ name: r.category, amount: r.amount })),
-      health: {
-        income:                  period.income,
-        expenses:                period.expenses,
-        savings:                 period.savings,
-        previousPeriodExpenses:  prev.expenses,
-        budgetCategoriesTotal:   0,
-        budgetCategoriesOnTrack: 0,
-        largestExpenseCategory:  catRows[0]
-          ? { name: catRows[0].category, amount: catRows[0].amount }
-          : null,
-      },
+      accounts: accountRows,
+      recentTransactions: recentRows,
+      upcoming: upcomingRows,
     });
   } catch (err) {
     return NextResponse.json(

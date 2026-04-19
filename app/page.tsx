@@ -7,19 +7,24 @@ import SummaryCards from "./components/SummaryCards";
 import IncomeExpensesChart, { MonthlyData } from "./components/IncomeExpensesChart";
 import SpendingTrends, { TrendsData } from "./components/SpendingTrends";
 import SpendingByCategory, { CategorySpend } from "./components/SpendingByCategory";
-import FinancialHealth, { FinancialHealthData } from "./components/FinancialHealth";
+import DashboardAccounts, { DashboardAccount } from "./components/DashboardAccounts";
+import { DashboardUpcoming, DashboardRecentTransactions, type RecentTransaction, type UpcomingTransaction } from "./components/DashboardRecent";
+import PageHeader, { SplitTitle } from "./components/PageHeader";
 
 type DashboardData = {
-  summary:    { balance: number; income: number; expenses: number; savings: number };
-  chart:      MonthlyData[];
-  trends:     TrendsData;
-  categories: CategorySpend[];
-  health:     FinancialHealthData;
+  summary:            { balance: number; income: number; expenses: number; savings: number };
+  chart:              MonthlyData[];
+  netWorth:           { values: number[]; labels: string[] };
+  trends:             TrendsData;
+  categories:         CategorySpend[];
+  accounts:           DashboardAccount[];
+  recentTransactions: RecentTransaction[];
+  upcoming:           UpcomingTransaction[];
 };
 
 export default function DashboardPage() {
   const [selectedAccounts, setSelectedAccounts] = useState<number[]>([]);
-  const [dateRange, setDateRange]               = useState("mtd");
+  const [dateRange, setDateRange]               = useState("12m");
   const [accounts, setAccounts]                 = useState<Account[]>([]);
   const [data, setData]                         = useState<DashboardData | null>(null);
 
@@ -47,28 +52,33 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center justify-between border-b border-base-300 bg-base-100 px-8 py-4">
-        <h1 className="text-xl font-semibold">Dashboard</h1>
-        <div className="flex items-center gap-2">
-          <AccountFilter
-            accounts={accounts}
-            selected={selectedAccounts}
-            onChange={setSelectedAccounts}
-          />
-          <DateFilter selected={dateRange} onChange={setDateRange} />
-        </div>
-      </header>
+      <PageHeader
+        title={<SplitTitle left="Dash" right="board" />}
+        actions={
+          <>
+            <AccountFilter
+              accounts={accounts}
+              selected={selectedAccounts}
+              onChange={setSelectedAccounts}
+            />
+            <DateFilter selected={dateRange} onChange={setDateRange} />
+          </>
+        }
+      />
 
-      <div className="flex-1 p-8 space-y-6 overflow-y-auto">
+      <div className="flex-1 px-9 pb-12 pt-2 space-y-4 overflow-y-auto">
         <SummaryCards
           balance={summary?.balance   ?? 0}
           income={summary?.income     ?? 0}
           expenses={summary?.expenses ?? 0}
           savings={summary?.savings   ?? 0}
+          netWorth={data?.netWorth}
         />
-        <div className="flex items-stretch gap-6">
+
+        {/* Row 1: Income vs Expenses + Trends */}
+        <div className="flex items-stretch gap-4">
           <div className="flex-1 min-w-0">
-            <IncomeExpensesChart data={data?.chart ?? []} />
+            <IncomeExpensesChart data={data?.chart ?? []} stretch />
           </div>
           <div className="w-72 shrink-0">
             <SpendingTrends data={data?.trends ?? {
@@ -77,15 +87,24 @@ export default function DashboardPage() {
             }} dateRange={dateRange} />
           </div>
         </div>
-        <div className="flex items-stretch gap-6">
+
+        {/* Row 2: Spending by Category + Accounts */}
+        <div className="flex items-stretch gap-4">
           <div className="flex-1 min-w-0">
             <SpendingByCategory data={data?.categories ?? []} />
           </div>
           <div className="w-72 shrink-0">
-            <FinancialHealth data={data?.health ?? {
-              income: 0, expenses: 0, savings: 0, previousPeriodExpenses: 0,
-              budgetCategoriesTotal: 0, budgetCategoriesOnTrack: 0, largestExpenseCategory: null,
-            }} />
+            <DashboardAccounts accounts={data?.accounts ?? []} />
+          </div>
+        </div>
+
+        {/* Row 3: Upcoming + Recent Transactions */}
+        <div className="flex items-stretch gap-4">
+          <div className="flex-1 min-w-0">
+            <DashboardUpcoming upcoming={data?.upcoming ?? []} />
+          </div>
+          <div style={{ flex: "1.3" }} className="min-w-0">
+            <DashboardRecentTransactions transactions={data?.recentTransactions ?? []} />
           </div>
         </div>
       </div>
