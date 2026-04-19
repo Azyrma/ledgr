@@ -39,7 +39,7 @@ type Props = {
 
 export default function TransactionFilters({ filters, accounts, categories, onChange }: Props) {
   const [localSearch, setLocalSearch] = useState(filters.search);
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => { setLocalSearch(filters.search); }, [filters.search]);
 
@@ -66,7 +66,7 @@ export default function TransactionFilters({ filters, accounts, categories, onCh
     filters.transfers;
 
   return (
-    <div className="card bg-base-100 border border-base-300">
+    <div className="v2-card flex flex-col">
       <div className="card-body p-5 gap-4">
         {/* Row 1: Search + From + To */}
         <div className="grid grid-cols-[2fr_1fr_1fr] gap-4">
