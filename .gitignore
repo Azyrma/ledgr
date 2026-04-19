@@ -48,6 +48,8 @@ next-env.d.ts
 
 .claude
 moneydance
+DESIGN.md
+TODO.md
 
 *.db
 *.db-wal
