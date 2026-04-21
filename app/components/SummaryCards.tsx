@@ -1,12 +1,14 @@
 import { formatCurrency } from "@/lib/utils";
 import NetWorthChart from "./NetWorthChart";
+import { DATE_RANGES } from "./DateFilter";
 
 type Props = {
   balance: number;
   income: number;
   expenses: number;
   savings: number;
-  netWorth?: { values: number[]; labels: string[] };
+  netWorth?: { values: number[]; monthIndices?: number[]; monthLabels?: string[]; tickIndices?: number[]; tickLabels?: string[] };
+  dateRange?: string;
 };
 
 // Arrow-down icon (income flows in)
@@ -34,8 +36,9 @@ const PiggyBankIcon = () => (
   </svg>
 );
 
-export default function SummaryCards({ balance, income, expenses, savings, netWorth }: Props) {
+export default function SummaryCards({ balance, income, expenses, savings, netWorth, dateRange }: Props) {
   const savingsRate = income > 0 ? (savings / income) * 100 : 0;
+  const periodLabel = (DATE_RANGES.find((r) => r.value === dateRange)?.label ?? "This month").toLowerCase();
 
   return (
     <>
@@ -54,13 +57,20 @@ export default function SummaryCards({ balance, income, expenses, savings, netWo
             <div className="display-italic" style={{ fontSize: 15, color: "var(--brand)", marginTop: 8 }}>
               {savings >= 0 ? "+" : "−"}{formatCurrency(Math.abs(savings))}
               <span style={{ color: "var(--ink-3)", fontStyle: "normal", fontFamily: "'Inter', sans-serif", fontSize: 13, marginLeft: 8 }}>
-                saved this period · {savingsRate.toFixed(1)}% rate
+                saved · {periodLabel} · {savingsRate.toFixed(1)}% rate
               </span>
             </div>
           </div>
           {netWorth && netWorth.values.length > 0 && (
             <div style={{ marginRight: -28 }}>
-              <NetWorthChart values={netWorth.values} labels={netWorth.labels} height={130} />
+              <NetWorthChart
+                values={netWorth.values}
+                monthIndices={netWorth.monthIndices}
+                monthLabels={netWorth.monthLabels}
+                tickIndices={netWorth.tickIndices}
+                tickLabels={netWorth.tickLabels}
+                height={130}
+              />
             </div>
           )}
         </div>
@@ -72,7 +82,7 @@ export default function SummaryCards({ balance, income, expenses, savings, netWo
         <div className="v2-card v2-card-pad v2-card-hover">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span className="muted" style={{ fontSize: 11.5, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              Income this month
+              Income · {periodLabel}
             </span>
             <span style={{
               color: "var(--pos)",
@@ -92,7 +102,7 @@ export default function SummaryCards({ balance, income, expenses, savings, netWo
         <div className="v2-card v2-card-pad v2-card-hover">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <span className="muted" style={{ fontSize: 11.5, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              Expenses this month
+              Expenses · {periodLabel}
             </span>
             <span style={{
               color: "var(--neg)",

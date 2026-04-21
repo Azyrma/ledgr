@@ -41,6 +41,7 @@ export function DashboardUpcoming({ upcoming }: { upcoming: UpcomingTransaction[
         <div className="display-serif" style={{ fontSize: 17 }}>
           Upcoming <em className="display-italic" style={{ color: "var(--brand)" }}>· next 30 days</em>
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {upcoming.length > 0 && (
           <span className="chip" style={{ fontSize: 12 }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -50,6 +51,13 @@ export function DashboardUpcoming({ upcoming }: { upcoming: UpcomingTransaction[
             {upcoming.length} upcoming
           </span>
         )}
+        <Link href="/recurring" className="btn btn-sm btn-ghost" style={{ gap: 4 }}>
+          Recurring
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="m9 6 6 6-6 6" />
+          </svg>
+        </Link>
+        </div>
       </div>
 
       {upcoming.length === 0 ? (

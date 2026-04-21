@@ -1,29 +1,38 @@
 "use client";
 
-import { useMemo } from "react";
+import { useRef, useState } from "react";
 import { formatCurrency } from "@/lib/utils";
 
 type Props = {
   values: number[];
-  labels?: string[];
+  monthIndices?: number[];  // all month-start indices — for hover snapping
+  monthLabels?: string[];   // label per month — for tooltip
+  tickIndices?: number[];   // which indices get an X axis label
+  tickLabels?: string[];    // label for each tick
   height?: number;
   color?: string;
 };
 
 export default function NetWorthChart({
   values,
-  labels,
+  monthIndices,
+  monthLabels,
+  tickIndices,
+  tickLabels,
   height = 130,
   color = "var(--brand)",
 }: Props) {
-  if (!values || values.length === 0) return null;
+  const [hoveredMi, setHoveredMi] = useState<number | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  if (!values || values.length < 2) return null;
 
   const W = 600;
   const H = height;
-  const padL = 72;  // space for Y axis labels
-  const padR = 8;
+  const padL = 72;
+  const padR = 24;
   const padT = 8;
-  const padB = 22;  // space for X axis labels
+  const padB = 22;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
 
@@ -46,18 +55,46 @@ export default function NetWorthChart({
   }
   const fillD = `${d} L${pts[n - 1][0]},${H - padB} L${pts[0][0]},${H - padB} Z`;
 
-  // Y axis: 3 ticks (min, mid, max)
   const yTicks = [min, (min + max) / 2, max];
-
-  // Stable gradient ID (avoid random on every render)
   const gradId = "netWorthAreaGrad";
+
+  function handleMouseMove(e: React.MouseEvent<SVGRectElement>) {
+    if (!svgRef.current || !monthIndices?.length) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const svgX = ((e.clientX - rect.left) / rect.width) * W;
+    let best = 0, bestDist = Infinity;
+    monthIndices.forEach((dataIdx, mi) => {
+      const mx = padL + (dataIdx / (n - 1)) * innerW;
+      const dist = Math.abs(svgX - mx);
+      if (dist < bestDist) { bestDist = dist; best = mi; }
+    });
+    setHoveredMi(best);
+  }
+
+  // Tooltip geometry
+  const TW = 168, TH = 62;
+  let tooltipX = 0, tooltipY = 0, tooltipValue = 0, tooltipDelta: number | null = null, tooltipLabel = "";
+  if (hoveredMi !== null && monthIndices && monthLabels) {
+    const dataIdx = monthIndices[hoveredMi];
+    tooltipX = padL + (dataIdx / (n - 1)) * innerW;
+    tooltipY = pts[dataIdx][1];
+    tooltipValue = values[dataIdx];
+    tooltipLabel = monthLabels[hoveredMi];
+    if (hoveredMi > 0) {
+      tooltipDelta = tooltipValue - values[monthIndices[hoveredMi - 1]];
+    }
+  }
+  const tx = Math.max(padL, Math.min(W - padR - TW, tooltipX - TW / 2));
+  const ty = Math.max(padT + 2, tooltipY - TH - 14);
 
   return (
     <svg
+      ref={svgRef}
       viewBox={`0 0 ${W} ${H}`}
       width="100%"
       preserveAspectRatio="xMidYMid meet"
       style={{ display: "block", overflow: "visible" }}
+      onMouseLeave={() => setHoveredMi(null)}
     >
       <defs>
         <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
@@ -71,66 +108,82 @@ export default function NetWorthChart({
         const y = padT + innerH - ((v - min) / range) * innerH;
         return (
           <g key={i}>
-            <line
-              x1={padL} y1={y} x2={W - padR} y2={y}
-              stroke="var(--hair)"
-              strokeDasharray={i === 0 ? "" : "2 4"}
-            />
-            <text
-              x={padL - 8} y={y + 3.5}
-              fontSize="10"
-              fill="var(--ink-3)"
-              textAnchor="end"
-              fontFamily="'JetBrains Mono', monospace"
-            >
+            <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="var(--hair)" strokeDasharray={i === 0 ? "" : "2 4"} />
+            <text x={padL - 8} y={y + 3.5} fontSize="10" fill="var(--ink-3)" textAnchor="end" fontFamily="'JetBrains Mono', monospace">
               {formatCurrency(v, "CHF", 0)}
             </text>
           </g>
         );
       })}
 
-      {/* Vertical month tick marks */}
-      {pts.map(([x], i) => (
-        <line
-          key={i}
-          x1={x} y1={padT + innerH}
-          x2={x} y2={padT + innerH + 4}
-          stroke="var(--hair-2)"
-          strokeWidth="1"
-        />
-      ))}
+      {/* Tick marks at each month boundary (first = left edge, last = right edge) */}
+      {monthIndices?.map((dataIdx, i) => {
+        const x = padL + (dataIdx / (n - 1)) * innerW;
+        return <line key={i} x1={x} y1={padT + innerH} x2={x} y2={padT + innerH + 4} stroke="var(--hair-2)" strokeWidth="1" />;
+      })}
 
       {/* Area fill */}
       <path d={fillD} fill={`url(#${gradId})`} />
 
       {/* Line */}
-      <path
-        d={d}
-        stroke={color}
-        strokeWidth="2"
-        fill="none"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
+      <path d={d} stroke={color} strokeWidth="2" fill="none" strokeLinejoin="round" strokeLinecap="round" />
 
-      {/* X axis labels — clamp first/last to avoid clipping */}
-      {labels?.map((lab, i) => {
-        if ((n - 1 - i) % 2 !== 0) return null;
-        const x = padL + (i / (n - 1)) * innerW;
-        const anchor = i === 0 ? "start" : i === n - 1 ? "end" : "middle";
+      {/* X axis labels */}
+      {tickLabels?.map((lab, ti) => {
+        if (!tickIndices) return null;
+        const dataIdx = tickIndices[ti];
+        const x = padL + (dataIdx / (n - 1)) * innerW;
+        const anchor = "middle";
         return (
-          <text
-            key={i}
-            x={x}
-            y={H - 5}
-            fontSize="10"
-            fill="var(--ink-3)"
-            textAnchor={anchor}
-          >
+          <text key={ti} x={x} y={H - 5} fontSize="10" fill="var(--ink-3)" textAnchor={anchor}>
             {lab}
           </text>
         );
       })}
+
+      {/* Hover indicator */}
+      {hoveredMi !== null && (
+        <g>
+          <line
+            x1={tooltipX} y1={padT} x2={tooltipX} y2={padT + innerH}
+            stroke={color} strokeOpacity="0.35" strokeWidth="1" strokeDasharray="3 3"
+          />
+          <circle cx={tooltipX} cy={tooltipY} r="4.5" fill={color} />
+          <circle cx={tooltipX} cy={tooltipY} r="2.5" fill="var(--surface)" />
+
+          <rect x={tx} y={ty} width={TW} height={TH} rx="7"
+            fill="var(--surface)" stroke="var(--hair)" strokeWidth="1"
+          />
+          <text x={tx + 12} y={ty + 16} fontSize="10.5" fill="var(--ink-3)" fontFamily="'Inter', sans-serif" fontWeight="500">
+            {tooltipLabel}
+          </text>
+          <text x={tx + 12} y={ty + 35} fontSize="14" fill="var(--ink)" fontFamily="'JetBrains Mono', monospace" fontWeight="600">
+            {formatCurrency(tooltipValue, "CHF", 0)}
+          </text>
+          {tooltipDelta !== null && (() => {
+            const prevValue = tooltipValue - tooltipDelta;
+            const pct = prevValue !== 0 ? (tooltipDelta / Math.abs(prevValue)) * 100 : 0;
+            return (
+              <text x={tx + 12} y={ty + 52} fontSize="10.5" fontFamily="'JetBrains Mono', monospace" fontWeight="500"
+                fill={tooltipDelta >= 0 ? "var(--pos)" : "var(--neg)"}>
+                {tooltipDelta >= 0 ? "+" : "−"}{Math.abs(pct).toFixed(1)}% vs prev month
+              </text>
+            );
+          })()}
+          {tooltipDelta === null && (
+            <text x={tx + 12} y={ty + 52} fontSize="10.5" fill="var(--ink-4)" fontFamily="'Inter', sans-serif">
+              first month in view
+            </text>
+          )}
+        </g>
+      )}
+
+      {/* Transparent mouse-capture overlay */}
+      <rect
+        x={padL} y={padT} width={innerW} height={innerH}
+        fill="transparent" style={{ cursor: "crosshair" }}
+        onMouseMove={handleMouseMove}
+      />
     </svg>
   );
 }

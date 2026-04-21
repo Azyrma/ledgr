@@ -1,4 +1,5 @@
 import { formatCurrency } from "@/lib/utils";
+import { DATE_RANGES } from "./DateFilter";
 
 export type TrendsData = {
   thisWeekExpenses: number;
@@ -38,7 +39,12 @@ function pctColor(pct: number, higherIsBetter: boolean): string {
   return good ? "var(--pos)" : "var(--neg)";
 }
 
-export default function SpendingTrends({ data }: Props) {
+const PERIOD_DAYS: Record<string, number> = {
+  mtd: 30, "1month": 30, "2month": 60, "3month": 90,
+  "6month": 180, "12m": 365, ytd: 180, lastyear: 365, all: 365,
+};
+
+export default function SpendingTrends({ data, dateRange }: Props) {
   const {
     thisWeekExpenses,
     periodIncome,
@@ -48,6 +54,9 @@ export default function SpendingTrends({ data }: Props) {
     samePeriodLastYearSavings,
     periodSavings,
   } = data;
+
+  const periodLabel = DATE_RANGES.find((r) => r.value === dateRange)?.label ?? "This period";
+  const periodDays  = PERIOD_DAYS[dateRange] ?? 30;
 
   // YoY deltas
   const yoyIncomePct  = samePeriodLastYearIncome  > 0 ? ((periodIncome  - samePeriodLastYearIncome)  / samePeriodLastYearIncome)  * 100 : 0;
@@ -64,7 +73,7 @@ export default function SpendingTrends({ data }: Props) {
   return (
     <div className="v2-card h-full flex flex-col">
       <div style={{ padding: "22px 24px" }}>
-        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>This period</div>
+        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 16 }}>{periodLabel}</div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <TrendRow
@@ -74,7 +83,7 @@ export default function SpendingTrends({ data }: Props) {
           />
           <TrendRow
             label="Avg daily"
-            value={formatCurrency(periodExpenses > 0 ? periodExpenses / 30 : 0)}
+            value={formatCurrency(periodExpenses > 0 ? periodExpenses / periodDays : 0)}
             sub="30d rolling"
           />
           <TrendRow
