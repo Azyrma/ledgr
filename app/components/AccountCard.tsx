@@ -34,6 +34,7 @@ export type Holding = {
 type Props = {
   account: Account;
   holdings?: Holding[];
+  periodLabel?: string;
   onEdit: (account: Account) => void;
   onDelete: (account: Account) => void;
   onViewHoldings?: (account: Account) => void;
@@ -102,7 +103,7 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
-export default function AccountCard({ account, holdings, onEdit, onDelete, onViewHoldings }: Props) {
+export default function AccountCard({ account, holdings, periodLabel = "all time", onEdit, onDelete, onViewHoldings }: Props) {
   const typeLabel = ACCOUNT_TYPES.find((t) => t.value === account.type)?.label ?? account.type;
   const isInvestment = account.type === "investment";
   const hasMarketPrices = holdings?.some((h) => h.market_value != null) ?? false;
@@ -220,13 +221,13 @@ export default function AccountCard({ account, holdings, onEdit, onDelete, onVie
             {/* Income / Expenses / Transactions */}
             <div style={{ display: "flex", gap: 12, marginTop: 10, paddingTop: 12, borderTop: "1px solid var(--hair)" }}>
               <div style={{ flex: 1 }}>
-                <div className="muted" style={{ fontSize: 11 }}>In · 30d</div>
+                <div className="muted" style={{ fontSize: 11 }}>In · {periodLabel}</div>
                 <div className="num" style={{ fontSize: 13, fontWeight: 600, color: "var(--pos)", marginTop: 1 }}>
                   {formatCurrency(account.income, account.currency)}
                 </div>
               </div>
               <div style={{ flex: 1 }}>
-                <div className="muted" style={{ fontSize: 11 }}>Out · 30d</div>
+                <div className="muted" style={{ fontSize: 11 }}>Out · {periodLabel}</div>
                 <div className="num" style={{ fontSize: 13, fontWeight: 600, color: "var(--neg)", marginTop: 1 }}>
                   {formatCurrency(account.expenses, account.currency)}
                 </div>

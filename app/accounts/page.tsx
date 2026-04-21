@@ -6,7 +6,7 @@ import AccountModal from "../components/AccountModal";
 import HoldingsModal from "../components/HoldingsModal";
 import PageHeader, { SplitTitle } from "../components/PageHeader";
 import NetWorthChart from "../components/NetWorthChart";
-import DateFilter from "../components/DateFilter";
+import DateFilter, { DATE_RANGES } from "../components/DateFilter";
 import { formatCurrency } from "@/lib/utils";
 
 type NetWorthData = {
@@ -32,9 +32,9 @@ export default function AccountsPage() {
   const [nwDateRange, setNwDateRange] = useState("12m");
   const [nwData, setNwData]           = useState<NetWorthData | null>(null);
 
-  const fetchAccounts = useCallback(async () => {
+  const fetchAccounts = useCallback(async (dateRange: string) => {
     setLoading(true);
-    const res = await fetch("/api/accounts");
+    const res = await fetch(`/api/accounts?dateRange=${dateRange}`);
     setAccounts(await res.json());
     setLoading(false);
   }, []);
@@ -49,7 +49,7 @@ export default function AccountsPage() {
     setHoldingsMap(map);
   }, []);
 
-  useEffect(() => { fetchAccounts(); fetchAllHoldings(); }, [fetchAccounts, fetchAllHoldings]);
+  useEffect(() => { fetchAccounts(nwDateRange); fetchAllHoldings(); }, [fetchAccounts, fetchAllHoldings, nwDateRange]);
 
   useEffect(() => {
     fetch(`/api/net-worth?dateRange=${nwDateRange}`)
@@ -66,17 +66,18 @@ export default function AccountsPage() {
     await fetch(`/api/accounts/${deleteTarget.id}`, { method: "DELETE" });
     setDeleteTarget(null);
     setDeleting(false);
-    fetchAccounts();
+    fetchAccounts(nwDateRange);
     fetchAllHoldings();
   }
 
   function handleAccountSaved() {
-    fetchAccounts();
+    fetchAccounts(nwDateRange);
     fetchAllHoldings();
   }
 
   const regularAccounts = accounts.filter((a) => a.type !== "investment");
   const investmentAccounts = accounts.filter((a) => a.type === "investment");
+  const periodLabel = (DATE_RANGES.find((r) => r.value === nwDateRange)?.label ?? "Last 12 months").toLowerCase();
 
   return (
     <div className="flex flex-col h-full">
@@ -148,7 +149,7 @@ export default function AccountsPage() {
                 <h2 className="mb-4 text-sm font-semibold text-base-content/50 uppercase tracking-wider">Accounts</h2>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {regularAccounts.map((account) => (
-                    <AccountCard key={account.id} account={account} onEdit={openEdit} onDelete={setDeleteTarget} />
+                    <AccountCard key={account.id} account={account} periodLabel={periodLabel} onEdit={openEdit} onDelete={setDeleteTarget} />
                   ))}
                 </div>
               </section>
@@ -163,6 +164,7 @@ export default function AccountsPage() {
                       key={account.id}
                       account={account}
                       holdings={holdingsMap[account.id]}
+                      periodLabel={periodLabel}
                       onEdit={openEdit}
                       onDelete={setDeleteTarget}
                       onViewHoldings={setHoldingsAccount}
@@ -187,7 +189,7 @@ export default function AccountsPage() {
         <HoldingsModal
           account={holdingsAccount}
           onClose={() => setHoldingsAccount(null)}
-          onChanged={() => { fetchAccounts(); fetchAllHoldings(); }}
+          onChanged={() => { fetchAccounts(nwDateRange); fetchAllHoldings(); }}
         />
       )}
 
