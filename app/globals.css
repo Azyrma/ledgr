@@ -132,8 +132,8 @@ body {
 .num   { font-variant-numeric: tabular-nums; }
 
 .page-title {
-  font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
-  font-weight: 700;
+  font-family: var(--font-fraunces), 'Fraunces', Georgia, serif;
+  font-weight: 600;
   font-size: 36px;
   line-height: 1.1;
   letter-spacing: -0.02em;

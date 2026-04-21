@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { formatCurrency } from "@/lib/utils";
 
 export type CategorySpend = {
@@ -118,8 +119,16 @@ export default function SpendingByCategory({ data }: Props) {
   if (filtered.length === 0) {
     return (
       <div className="v2-card v2-card-pad h-full flex flex-col">
-        <div className="display-serif" style={{ fontSize: 17, marginBottom: 16 }}>
-          Spending by <em className="display-italic" style={{ color: "var(--brand)" }}>category</em>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+          <div className="display-serif" style={{ fontSize: 17 }}>
+            Spending by <em className="display-italic" style={{ color: "var(--brand)" }}>category</em>
+          </div>
+          <Link href="/reports" className="btn btn-sm btn-ghost" style={{ gap: 4 }}>
+            Reports
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="m9 6 6 6-6 6" />
+            </svg>
+          </Link>
         </div>
         <p className="muted" style={{ fontSize: 13, textAlign: "center", padding: "40px 0" }}>
           No category spending to display for this period.
@@ -140,6 +149,12 @@ export default function SpendingByCategory({ data }: Props) {
             {filtered.length} categories
           </div>
         </div>
+        <Link href="/reports" className="btn btn-sm btn-ghost" style={{ gap: 4 }}>
+          Reports
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+            <path d="m9 6 6 6-6 6" />
+          </svg>
+        </Link>
       </div>
 
       {/* Donut + category list */}

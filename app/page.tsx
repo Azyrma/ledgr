@@ -14,7 +14,7 @@ import PageHeader, { SplitTitle } from "./components/PageHeader";
 type DashboardData = {
   summary:            { balance: number; income: number; expenses: number; savings: number };
   chart:              MonthlyData[];
-  netWorth:           { values: number[]; labels: string[] };
+  netWorth:           { values: number[]; monthIndices: number[]; monthLabels: string[]; tickIndices: number[]; tickLabels: string[] };
   trends:             TrendsData;
   categories:         CategorySpend[];
   accounts:           DashboardAccount[];
@@ -73,6 +73,7 @@ export default function DashboardPage() {
           expenses={summary?.expenses ?? 0}
           savings={summary?.savings   ?? 0}
           netWorth={data?.netWorth}
+          dateRange={dateRange}
         />
 
         {/* Row 1: Income vs Expenses + Trends */}
