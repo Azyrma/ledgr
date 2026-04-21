@@ -5,6 +5,18 @@ import AccountCard, { Account, Holding } from "../components/AccountCard";
 import AccountModal from "../components/AccountModal";
 import HoldingsModal from "../components/HoldingsModal";
 import PageHeader, { SplitTitle } from "../components/PageHeader";
+import NetWorthChart from "../components/NetWorthChart";
+import DateFilter from "../components/DateFilter";
+import { formatCurrency } from "@/lib/utils";
+
+type NetWorthData = {
+  balance: number;
+  values: number[];
+  monthIndices: number[];
+  monthLabels: string[];
+  tickIndices: number[];
+  tickLabels: string[];
+};
 
 type EditTarget = Account | null;
 
@@ -17,6 +29,8 @@ export default function AccountsPage() {
   const [deleting, setDeleting]     = useState(false);
   const [holdingsAccount, setHoldingsAccount] = useState<Account | null>(null);
   const [holdingsMap, setHoldingsMap] = useState<Record<number, Holding[]>>({});
+  const [nwDateRange, setNwDateRange] = useState("12m");
+  const [nwData, setNwData]           = useState<NetWorthData | null>(null);
 
   const fetchAccounts = useCallback(async () => {
     setLoading(true);
@@ -36,6 +50,12 @@ export default function AccountsPage() {
   }, []);
 
   useEffect(() => { fetchAccounts(); fetchAllHoldings(); }, [fetchAccounts, fetchAllHoldings]);
+
+  useEffect(() => {
+    fetch(`/api/net-worth?dateRange=${nwDateRange}`)
+      .then((r) => r.json())
+      .then((d) => { if (!d.error) setNwData(d); });
+  }, [nwDateRange]);
 
   function openAdd() { setEditTarget(null); setShowModal(true); }
   function openEdit(account: Account) { setEditTarget(account); setShowModal(true); }
@@ -63,16 +83,49 @@ export default function AccountsPage() {
       <PageHeader
         title={<SplitTitle left="Acc" right="ounts" />}
         actions={
-          <button onClick={openAdd} className="btn btn-primary btn-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Add account
-          </button>
+          <>
+            <DateFilter selected={nwDateRange} onChange={setNwDateRange} />
+            <button onClick={openAdd} className="btn btn-primary btn-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Add account
+            </button>
+          </>
         }
       />
 
-      <div className="flex-1 overflow-y-auto px-9 pb-12 pt-2">
+      <div className="flex-1 overflow-y-auto px-9 pb-12 pt-2 space-y-6">
+        {/* Net Worth card */}
+        <div className="v2-card" style={{ padding: "22px 28px 0", overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 40, alignItems: "center" }}>
+            <div style={{ paddingBottom: 28 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div className="muted" style={{ fontSize: 11.5, fontWeight: 500, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  Net Worth
+                </div>
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <span className="display-serif num" style={{ fontSize: 40, fontWeight: 500, color: "var(--ink)" }}>
+                  {nwData ? formatCurrency(nwData.balance) : "—"}
+                </span>
+              </div>
+            </div>
+            <div style={{ marginRight: -28 }}>
+              {nwData && nwData.values.length > 1 && (
+                <NetWorthChart
+                  values={nwData.values}
+                  monthIndices={nwData.monthIndices}
+                  monthLabels={nwData.monthLabels}
+                  tickIndices={nwData.tickIndices}
+                  tickLabels={nwData.tickLabels}
+                  height={120}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <span className="loading loading-spinner loading-lg"></span>
