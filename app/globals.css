@@ -26,9 +26,9 @@
   --color-warning-content: oklch(22% 0.012 80);
   --color-error: oklch(52% 0.12 35);
   --color-error-content: oklch(98% 0.005 35);
-  --radius-selector: 0.5rem;
-  --radius-field: 0.5rem;
-  --radius-box: 0.75rem;
+  --radius-selector: 0.25rem;
+  --radius-field: 0.25rem;
+  --radius-box: 0.5rem;
   --size-selector: 0.25rem;
   --size-field: 0.25rem;
   --border: 1px;
@@ -196,6 +196,7 @@ body {
   padding: 20px 36px 16px; background: var(--bg);
   gap: 16px;
 }
+.v2-topbar .btn { height: 40px !important; }
 
 .pos { color: var(--pos); }
 .neg { color: var(--neg); }
@@ -213,7 +214,7 @@ body {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 7px 12px;
   min-height: 0; height: auto;
-  border-radius: 8px !important;
+  border-radius: 5px !important;
   border: 1px solid var(--hair-2);
   background: var(--surface);
   font-weight: 500; font-size: 13px;
@@ -260,7 +261,7 @@ body {
 .checkbox:checked { background-color: var(--brand); border-color: var(--brand); }
 
 .input, .select, .textarea {
-  border-radius: 8px;
+  border-radius: 5px;
   border: 1px solid var(--hair-2);
   background: var(--surface);
   color: var(--ink);
