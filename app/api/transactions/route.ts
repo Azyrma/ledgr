@@ -26,7 +26,11 @@ export function GET(request: NextRequest) {
     const conditions: string[] = [];
     const params: (string | number)[] = [];
 
-    if (search)      { conditions.push("LOWER(t.description) LIKE ?"); params.push(`%${search.toLowerCase()}%`); }
+    if (search) {
+      const q = `%${search.toLowerCase()}%`;
+      conditions.push("(LOWER(t.description) LIKE ? OR LOWER(t.category) LIKE ? OR LOWER(a.name) LIKE ? OR CAST(t.amount AS TEXT) LIKE ?)");
+      params.push(q, q, q, q);
+    }
     if (from)        { conditions.push("t.date >= ?");                  params.push(from); }
     if (to)          { conditions.push("t.date <= ?");                  params.push(to); }
     if (accountId)   { conditions.push("t.account_id = ?");             params.push(Number(accountId)); }
