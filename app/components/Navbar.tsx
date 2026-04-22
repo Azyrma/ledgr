@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import CsvImportModal from "./CsvImportModal";
+import type { ImportedDetail } from "./ImportToast";
 
 const overviewItems = [
   {
@@ -63,7 +65,7 @@ const overviewItems = [
 
 const organizeItems = [
   {
-    label: "Categories",
+    label: "Categories & Tags",
     href: "/categories",
     icon: (
       <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -120,7 +122,8 @@ const planItems = [
 
 export default function Navbar() {
   const pathname = usePathname();
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark]         = useState(false);
+  const [showImport, setShowImport] = useState(false);
 
   useEffect(() => {
     setIsDark(document.documentElement.getAttribute("data-theme") === "dark");
@@ -143,6 +146,7 @@ export default function Navbar() {
   );
 
   return (
+    <>
     <aside className="v2-sidebar sticky top-0 flex h-screen w-[232px] flex-col flex-shrink-0">
       <div className="flex items-center gap-[10px] px-5 pt-[22px] pb-[18px]">
         <span className="v2-brand-mark">L</span>
@@ -159,6 +163,20 @@ export default function Navbar() {
       </div>
 
       <div className="p-3 border-t" style={{ borderColor: "var(--hair)" }}>
+        <button
+          onClick={() => setShowImport(true)}
+          className="v2-nav-item w-full"
+          style={{ gap: 12 }}
+        >
+          <span style={{ color: "var(--ink-3)", display: "inline-flex" }}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-[18px] w-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+          </span>
+          <span>Import</span>
+        </button>
         <button
           onClick={toggleTheme}
           className="v2-nav-item w-full"
@@ -180,5 +198,19 @@ export default function Navbar() {
         </button>
       </div>
     </aside>
+
+    {showImport && (
+      <CsvImportModal
+        onClose={() => setShowImport(false)}
+        onImported={async () => {
+          setShowImport(false);
+          const res = await fetch("/api/imports");
+          const detail: ImportedDetail | null = await res.json();
+          if (detail) window.dispatchEvent(new CustomEvent("ledgr:imported", { detail }));
+          window.dispatchEvent(new CustomEvent("ledgr:refresh"));
+        }}
+      />
+    )}
+  </>
   );
 }

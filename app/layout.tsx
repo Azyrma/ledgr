@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Fraunces, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "./components/Navbar";
+import ImportToast from "./components/ImportToast";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -46,6 +47,7 @@ export default function RootLayout({
           <main className="flex-1 overflow-y-auto min-w-0">
             {children}
           </main>
+          <ImportToast />
         </div>
       </body>
     </html>
