@@ -121,4 +121,15 @@ export const MIGRATIONS = `
   UPDATE transactions SET category = 'Savings: Savings' WHERE category = 'Savings';
   INSERT INTO categories (name, parent_id, is_system) SELECT 'General', 24, 0 WHERE NOT EXISTS (SELECT 1 FROM categories WHERE parent_id = 24 AND name = 'General');
   UPDATE transactions SET category = 'Needs: Sports: General' WHERE category = 'Needs: Sports';
+  CREATE TABLE IF NOT EXISTS tags (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    name      TEXT    NOT NULL,
+    color     TEXT,
+    icon      TEXT,
+    is_system INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT   NOT NULL DEFAULT (datetime('now'))
+  );
+  INSERT OR IGNORE INTO tags (id, name, color, icon, is_system) VALUES (1, 'Transfer',        '#6B8CAE', NULL, 1);
+  INSERT OR IGNORE INTO tags (id, name, color, icon, is_system) VALUES (2, 'Owed by parents', '#C49A3C', NULL, 1);
+  INSERT OR IGNORE INTO tags (id, name, color, icon, is_system) VALUES (3, 'Needs review',    '#E07B4F', NULL, 1);
 `;
