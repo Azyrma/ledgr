@@ -49,9 +49,10 @@ type Props = {
   tags: Tag[];
   onChange: (filters: Filters) => void;
   activeFilterCount: number;
+  hideTabs?: Tab[];
 };
 
-type Tab = "category" | "account" | "amount" | "tags";
+export type Tab = "category" | "account" | "amount" | "tags";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "category", label: "Category" },
@@ -68,9 +69,10 @@ function tabHasActive(tab: Tab, filters: Filters): boolean {
   return false;
 }
 
-export default function TransactionFilters({ filters, accounts, categoryDisplayMap, tags, onChange, activeFilterCount }: Props) {
+export default function TransactionFilters({ filters, accounts, categoryDisplayMap, tags, onChange, activeFilterCount, hideTabs }: Props) {
+  const visibleTabs = hideTabs ? TABS.filter((t) => !hideTabs.includes(t.id)) : TABS;
   const [open, setOpen]     = useState(false);
-  const [tab, setTab]       = useState<Tab>("category");
+  const [tab, setTab]       = useState<Tab>(() => visibleTabs[0]?.id ?? "category");
   const [search, setSearch] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
@@ -159,7 +161,7 @@ export default function TransactionFilters({ filters, accounts, categoryDisplayM
         }}>
           {/* Left nav */}
           <div style={{ padding: 6, borderRight: "1px solid var(--hair)", minWidth: 130 }}>
-            {TABS.map((t) => {
+            {visibleTabs.map((t) => {
               const active = tabHasActive(t.id, filters);
               const selected = tab === t.id;
               return (
