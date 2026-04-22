@@ -14,7 +14,6 @@ type Props = {
 export default function HoldingFormModal({ accountId, initial, onClose, onSaved }: Props) {
   const isEdit = !!initial?.id;
 
-  const [ticker, setTicker] = useState(initial?.ticker ?? "");
   const [name, setName] = useState(initial?.name ?? "");
   const [shares, setShares] = useState(initial?.shares ?? 0);
   const [avgCost, setAvgCost] = useState(initial?.avg_cost_per_share ?? 0);
@@ -26,15 +25,15 @@ export default function HoldingFormModal({ accountId, initial, onClose, onSaved 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (!ticker.trim() || !name.trim()) { setError("Ticker and name are required."); return; }
+    if (!name.trim()) { setError("Name is required."); return; }
     if (shares <= 0) { setError("Shares must be greater than 0."); return; }
 
     setSaving(true);
     try {
       const method = isEdit ? "PUT" : "POST";
       const body = isEdit
-        ? { id: initial!.id, ticker, name, shares, avg_cost_per_share: avgCost, currency, isin }
-        : { account_id: accountId, ticker, name, shares, avg_cost_per_share: avgCost, currency, isin };
+        ? { id: initial!.id, name, shares, avg_cost_per_share: avgCost, currency, isin }
+        : { account_id: accountId, name, shares, avg_cost_per_share: avgCost, currency, isin };
 
       const res = await fetch("/api/holdings", {
         method,
@@ -60,17 +59,20 @@ export default function HoldingFormModal({ accountId, initial, onClose, onSaved 
 
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4">
-            <fieldset className="fieldset">
-              <legend className="fieldset-legend">Ticker *</legend>
+            <fieldset className="fieldset col-span-2">
+              <legend className="fieldset-legend">Name *</legend>
               <input
                 type="text"
-                placeholder="e.g. AAPL"
-                value={ticker}
-                onChange={(e) => setTicker(e.target.value.toUpperCase())}
+                placeholder="e.g. Vanguard FTSE All-World"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 className="input input-bordered w-full"
                 autoFocus
               />
             </fieldset>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             <fieldset className="fieldset">
               <legend className="fieldset-legend">Currency</legend>
               <select value={currency} onChange={(e) => setCurrency(e.target.value)} className="select select-bordered w-full">
@@ -78,17 +80,6 @@ export default function HoldingFormModal({ accountId, initial, onClose, onSaved 
               </select>
             </fieldset>
           </div>
-
-          <fieldset className="fieldset">
-            <legend className="fieldset-legend">Name *</legend>
-            <input
-              type="text"
-              placeholder="e.g. Apple Inc."
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="input input-bordered w-full"
-            />
-          </fieldset>
 
           <fieldset className="fieldset">
             <legend className="fieldset-legend">ISIN <span className="text-xs font-normal text-base-content/40">(for live prices)</span></legend>

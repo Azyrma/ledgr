@@ -24,14 +24,14 @@ export function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { account_id, ticker, name, shares, avg_cost_per_share, currency, isin } = await request.json();
-    if (!account_id || !ticker || !name || shares == null || avg_cost_per_share == null) {
+    if (!account_id || !name || shares == null || avg_cost_per_share == null) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
 
     const db = getDb();
     const result = db.prepare(
       "INSERT INTO holdings (account_id, ticker, name, shares, avg_cost_per_share, currency, isin) VALUES (?, ?, ?, ?, ?, ?, ?)"
-    ).run(account_id, ticker.toUpperCase(), name, shares, avg_cost_per_share, currency ?? "USD", isin ?? "");
+    ).run(account_id, (ticker ?? "").toUpperCase(), name, shares, avg_cost_per_share, currency ?? "USD", isin ?? "");
 
     return NextResponse.json({ id: result.lastInsertRowid });
   } catch (err) {
@@ -47,7 +47,7 @@ export async function PUT(request: NextRequest) {
     const db = getDb();
     const result = db.prepare(
       "UPDATE holdings SET ticker = ?, name = ?, shares = ?, avg_cost_per_share = ?, currency = ?, isin = ? WHERE id = ?"
-    ).run(ticker.toUpperCase(), name, shares, avg_cost_per_share, currency ?? "USD", isin ?? "", id);
+    ).run((ticker ?? "").toUpperCase(), name, shares, avg_cost_per_share, currency ?? "USD", isin ?? "", id);
 
     if (result.changes === 0) return NextResponse.json({ error: "Not found." }, { status: 404 });
     return NextResponse.json({ ok: true });
