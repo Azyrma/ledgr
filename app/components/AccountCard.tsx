@@ -38,6 +38,7 @@ type Props = {
   onEdit: (account: Account) => void;
   onDelete: (account: Account) => void;
   onViewHoldings?: (account: Account) => void;
+  onView?: (account: Account) => void;
 };
 
 // MiniSpark: simple SVG polyline sparkline
@@ -103,7 +104,7 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
-export default function AccountCard({ account, holdings, periodLabel = "all time", onEdit, onDelete, onViewHoldings }: Props) {
+export default function AccountCard({ account, holdings, periodLabel = "all time", onEdit, onDelete, onViewHoldings, onView }: Props) {
   const typeLabel = ACCOUNT_TYPES.find((t) => t.value === account.type)?.label ?? account.type;
   const isInvestment = account.type === "investment";
   const hasMarketPrices = holdings?.some((h) => h.market_value != null) ?? false;
@@ -113,7 +114,16 @@ export default function AccountCard({ account, holdings, periodLabel = "all time
   const sparkValues = account.sparkline ?? [];
 
   return (
-    <div className="v2-card v2-card-hover" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
+    <div
+      className="v2-card v2-card-hover"
+      style={{
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        cursor: onView ? "pointer" : "default",
+      }}
+      onClick={() => onView?.(account)}
+    >
       {/* Color bar */}
       <div style={{ height: 4, background: account.color, flexShrink: 0 }} />
 

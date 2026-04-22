@@ -36,14 +36,23 @@ export default function NetWorthChart({
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
 
-  const max = Math.max(...values);
-  const min = 0;
+  const dataMax = Math.max(...values);
+  const dataMin = Math.min(...values);
+  const hasNegative = dataMin < 0;
+
+  // When negative values exist, center zero and scale symmetrically outward.
+  const extent = hasNegative ? Math.max(Math.abs(dataMax), Math.abs(dataMin)) : dataMax;
+  const max = hasNegative ? extent : dataMax;
+  const min = hasNegative ? -extent : 0;
   const range = max - min || 1;
   const n = values.length;
 
+  const toY = (v: number) => padT + innerH - ((v - min) / range) * innerH;
+  const zeroY = toY(0);
+
   const pts: [number, number][] = values.map((v, i) => [
     padL + (i / (n - 1)) * innerW,
-    padT + innerH - ((v - min) / range) * innerH,
+    toY(v),
   ]);
 
   let d = `M${pts[0][0]},${pts[0][1]}`;
@@ -53,9 +62,12 @@ export default function NetWorthChart({
     const cx = (x0 + x1) / 2;
     d += ` C${cx},${y0} ${cx},${y1} ${x1},${y1}`;
   }
-  const fillD = `${d} L${pts[n - 1][0]},${H - padB} L${pts[0][0]},${H - padB} Z`;
+  // Fill closes to the zero line, not the bottom edge.
+  const fillD = `${d} L${pts[n - 1][0]},${zeroY} L${pts[0][0]},${zeroY} Z`;
 
-  const yTicks = [min, (min + max) / 2, max];
+  const yTicks = hasNegative
+    ? [-extent, 0, extent]
+    : [0, dataMax / 2, dataMax];
   const gradId = "netWorthAreaGrad";
 
   function handleMouseMove(e: React.MouseEvent<SVGRectElement>) {
@@ -97,18 +109,19 @@ export default function NetWorthChart({
       onMouseLeave={() => setHoveredMi(null)}
     >
       <defs>
-        <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={gradId} x1="0" x2="0" y1={padT} y2={zeroY} gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor={color} stopOpacity="0.22" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
         </linearGradient>
       </defs>
 
       {/* Y axis grid lines + labels */}
       {yTicks.map((v, i) => {
-        const y = padT + innerH - ((v - min) / range) * innerH;
+        const y = toY(v);
+        const isZero = v === 0;
         return (
           <g key={i}>
-            <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="var(--hair)" strokeDasharray={i === 0 ? "" : "2 4"} />
+            <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="var(--hair)" strokeDasharray={isZero ? "" : "2 4"} />
             <text x={padL - 8} y={y + 3.5} fontSize="10" fill="var(--ink-3)" textAnchor="end" fontFamily="'JetBrains Mono', monospace">
               {formatCurrency(v, "CHF", 0)}
             </text>
