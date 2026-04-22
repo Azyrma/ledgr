@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import AccountCard, { Account, Holding } from "../components/AccountCard";
 import AccountModal from "../components/AccountModal";
 import HoldingsModal from "../components/HoldingsModal";
@@ -21,6 +22,7 @@ type NetWorthData = {
 type EditTarget = Account | null;
 
 export default function AccountsPage() {
+  const router = useRouter();
   const [accounts, setAccounts]     = useState<Account[]>([]);
   const [loading, setLoading]       = useState(true);
   const [showModal, setShowModal]   = useState(false);
@@ -149,7 +151,7 @@ export default function AccountsPage() {
                 <h2 className="mb-4 text-sm font-semibold text-base-content/50 uppercase tracking-wider">Accounts</h2>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {regularAccounts.map((account) => (
-                    <AccountCard key={account.id} account={account} periodLabel={periodLabel} onEdit={openEdit} onDelete={setDeleteTarget} />
+                    <AccountCard key={account.id} account={account} periodLabel={periodLabel} onEdit={openEdit} onDelete={setDeleteTarget} onView={(a) => router.push(`/accounts/${a.id}`)} />
                   ))}
                 </div>
               </section>
@@ -168,6 +170,7 @@ export default function AccountsPage() {
                       onEdit={openEdit}
                       onDelete={setDeleteTarget}
                       onViewHoldings={setHoldingsAccount}
+                      onView={(a) => router.push(`/accounts/${a.id}`)}
                     />
                   ))}
                 </div>
