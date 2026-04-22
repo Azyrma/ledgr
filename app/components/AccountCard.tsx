@@ -145,13 +145,13 @@ export default function AccountCard({ account, holdings, periodLabel = "all time
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <button onClick={() => onEdit(account)} className="btn btn-ghost btn-xs" title="Edit">
+            <button onClick={(e) => { e.stopPropagation(); onEdit(account); }} className="btn btn-ghost btn-xs" title="Edit">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
               </svg>
             </button>
-            <button onClick={() => onDelete(account)} className="btn btn-ghost btn-xs" style={{ color: "var(--neg)" }} title="Delete">
+            <button onClick={(e) => { e.stopPropagation(); onDelete(account); }} className="btn btn-ghost btn-xs" style={{ color: "var(--neg)" }} title="Delete">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
                 <path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
@@ -187,7 +187,7 @@ export default function AccountCard({ account, holdings, periodLabel = "all time
                 {holdings.slice(0, 4).map((h) => (
                   <div key={h.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderRadius: 8, background: "var(--surface-2)", padding: "6px 12px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600 }}>{h.ticker}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600 }}>{h.ticker || h.name}</span>
                       <span className="muted" style={{ fontSize: 12 }}>{h.shares} shares</span>
                     </div>
                     <span style={{ fontSize: 12, fontWeight: 500, color: "var(--ink-2)" }}>
@@ -205,7 +205,7 @@ export default function AccountCard({ account, holdings, periodLabel = "all time
               <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>No holdings yet</p>
             )}
 
-            <button onClick={() => onViewHoldings?.(account)} className="btn btn-outline btn-sm" style={{ marginTop: 12 }}>
+            <button onClick={(e) => { e.stopPropagation(); onViewHoldings?.(account); }} className="btn btn-outline btn-sm" style={{ marginTop: 12 }}>
               Manage holdings
             </button>
           </>
