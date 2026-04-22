@@ -1,15 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, memo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, memo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import CsvImportModal from "../components/CsvImportModal";
 import AddTransactionModal from "../components/AddTransactionModal";
 import ExportCsvModal from "../components/ExportCsvModal";
 import TransactionFilters, { DEFAULT_FILTERS, type Filters } from "../components/TransactionFilters";
+import TransactionDateFilter from "../components/TransactionDateFilter";
 import SetCategoryPopover, { buildSections, type Section } from "../components/SetCategoryPopover";
 import PageHeader, { SplitTitle } from "../components/PageHeader";
 import { formatCurrency } from "@/lib/utils";
-import { buildCategoryNodeMap, getCategoryPath, type FlatCat } from "@/lib/categories";
+import { buildCategoryDisplayMap, type CategoryDisplay, type FlatCat } from "@/lib/categories";
+import { CATEGORY_ICON_MAP } from "@/app/components/CategoryModal";
 
 type Transaction = {
   id: number;
@@ -28,17 +29,18 @@ type Transaction = {
 };
 
 type Account = { id: number; name: string; color: string | null; currency: string; exchange_rate: number };
+type Tag = { id: number; name: string; color: string | null; icon: string | null; is_system: number };
 
 type SortState = {
   field: "date" | "description" | "account" | "category" | "amount";
   dir: "asc" | "desc";
 };
 
-const COLUMNS: { label: string; field: SortState["field"] }[] = [
-  { label: "Date",        field: "date" },
+const COLUMNS: { label: string; field?: SortState["field"] }[] = [
   { label: "Description", field: "description" },
   { label: "Account",     field: "account" },
   { label: "Category",    field: "category" },
+  { label: "Tags" },
   { label: "Amount",      field: "amount" },
 ];
 
@@ -47,14 +49,6 @@ type EditState = {
   field: "date" | "description" | "account" | "category" | "amount";
   value: string;
   original: string;
-} | null;
-
-type LatestImport = {
-  id: number;
-  filename: string;
-  account_name: string;
-  count: number;
-  imported_at: string;
 } | null;
 
 type RecatDialog = {
@@ -92,17 +86,27 @@ function formatDate(iso: string) {
   return `${d}.${m}.${y}`;
 }
 
-function buildCategoryPathMap(cats: FlatCat[]): Map<string, string> {
-  const nodeMap = buildCategoryNodeMap(cats);
-  const result = new Map<string, string>();
-  nodeMap.forEach((cat, id) => {
-    if (!cat.is_system) result.set(cat.name, getCategoryPath(id, nodeMap));
-  });
-  return result;
-}
+const DEFAULT_CAT_COLOR = "#A89080";
 
 const INPUT_CLS =
   "w-full input input-bordered input-sm";
+
+function TagPill({ color, icon, label, onClick }: { color: string; icon: string | null; label: string; onClick?: () => void }) {
+  const Icon = icon ? CATEGORY_ICON_MAP[icon] : null;
+  return (
+    <div
+      onClick={onClick}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 ${onClick ? "cursor-pointer transition-opacity hover:opacity-70" : ""}`}
+      style={{ backgroundColor: `${color}22`, border: `1px solid ${color}55` }}
+    >
+      {Icon
+        ? <Icon size={10} color={color} strokeWidth={2} className="shrink-0" />
+        : <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+      }
+      <span className="text-xs font-medium" style={{ color }}>{label}</span>
+    </div>
+  );
+}
 
 // ── Memoized row — only re-renders when its own data or edit/select state changes ──────────────
 
@@ -113,7 +117,8 @@ const TransactionRow = memo(function TransactionRow({
   editingValue,
   isSelected,
   accounts,
-  categoryPaths,
+  categoryDisplayMap,
+  tags,
   cbRef,
 }: {
   t: Transaction;
@@ -122,7 +127,8 @@ const TransactionRow = memo(function TransactionRow({
   editingValue: string;
   isSelected: boolean;
   accounts: Account[];
-  categoryPaths: Map<string, string>;
+  categoryDisplayMap: Map<string, CategoryDisplay>;
+  tags: Tag[];
   cbRef: { current: RowCallbacks };
 }) {
   const isEditingField = (field: NonNullable<EditState>["field"]) =>
@@ -131,7 +137,7 @@ const TransactionRow = memo(function TransactionRow({
   return (
     <div
       style={{ height: ROW_HEIGHT }}
-      className={`grid grid-cols-[2.5rem_5.5rem_2fr_1fr_1.5fr_1fr] items-center overflow-hidden px-5 transition-colors ${
+      className={`grid grid-cols-[2.5rem_2fr_1fr_1.5fr_1fr_1fr] items-center overflow-hidden px-5 transition-colors ${
         isSelected ? "bg-base-200" : "hover:bg-base-200"
       }`}
     >
@@ -142,31 +148,6 @@ const TransactionRow = memo(function TransactionRow({
         onChange={() => cbRef.current.toggleOne(t.id)}
         className="checkbox checkbox-sm"
       />
-
-      {/* Date */}
-      <div className="pr-2">
-        {isEditingField("date") ? (
-          <input
-            type="date"
-            autoFocus
-            value={editingValue}
-            onChange={(e) =>
-              cbRef.current.setEditing((prev) => prev ? { ...prev, value: e.target.value } : null)
-            }
-            onBlur={() => cbRef.current.commitEdit()}
-            onKeyDown={cbRef.current.handleEditKeyDown}
-            className={INPUT_CLS}
-          />
-        ) : (
-          <span
-            onClick={() => cbRef.current.startEdit(t.id, "date", t.date)}
-            className="cursor-text text-sm text-base-content/50 hover:text-base-content"
-            title="Click to edit"
-          >
-            {formatDate(t.date)}
-          </span>
-        )}
-      </div>
 
       {/* Description */}
       <div className="min-w-0 pr-4">
@@ -263,42 +244,63 @@ const TransactionRow = memo(function TransactionRow({
               not found
             </span>
           </div>
-        ) : (
+        ) : t.category ? (() => {
+          const display = categoryDisplayMap.get(t.category);
+          const leafName = display?.leafName ?? t.category.split(": ").pop() ?? t.category;
+          const color = display?.color ?? DEFAULT_CAT_COLOR;
+          const Icon = display?.icon ? CATEGORY_ICON_MAP[display.icon] : null;
+          return (
+            <div
+              onClick={(e) => cbRef.current.openCategoryPopover(t.id, t.category, t.needs_review, (e.currentTarget as HTMLElement).getBoundingClientRect())}
+              className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-full px-1.5 py-0.5 transition-opacity hover:opacity-80"
+              style={{ backgroundColor: `${color}22`, border: `1px solid ${color}55` }}
+              title={t.category}
+            >
+              {Icon
+                ? <Icon size={11} color={color} strokeWidth={2} className="shrink-0" />
+                : <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+              }
+              <span className="truncate text-xs font-medium" style={{ color }}>{leafName}</span>
+            </div>
+          );
+        })() : (
           <span
             onClick={(e) => cbRef.current.openCategoryPopover(t.id, t.category, t.needs_review, (e.currentTarget as HTMLElement).getBoundingClientRect())}
-            className={`block cursor-pointer truncate text-sm hover:underline ${
-              t.category
-                ? "text-base-content/70"
-                : "text-warning"
-            }`}
-            title={(categoryPaths.get(t.category) ?? t.category) || "Uncategorised"}
+            className="cursor-pointer text-xs text-warning hover:underline"
           >
-            {t.category ? (categoryPaths.get(t.category) ?? t.category) : "Uncategorised"}
+            Uncategorised
           </span>
         )}
       </div>
 
+      {/* Tags */}
+      <div className="flex min-w-0 flex-wrap items-center gap-1 pr-2">
+        {(t.linked_transaction_id !== null || t.category?.startsWith("Transfer:")) && (() => {
+          const tag = tags.find((t) => t.id === 1);
+          return <TagPill color={tag?.color ?? "#6B8CAE"} icon={tag?.icon ?? null} label={tag?.name ?? "Transfer"} />;
+        })()}
+        {!!t.reimbursable && (() => {
+          const tag = tags.find((t) => t.id === 2);
+          return (
+            <TagPill
+              color={tag?.color ?? "#C49A3C"}
+              icon={tag?.icon ?? null}
+              label={tag?.name ?? "Owed by parents"}
+              onClick={() => {
+                cbRef.current.optimisticUpdate(t.id, { reimbursable: 0 });
+                cbRef.current.patchTransaction(t.id, { reimbursable: false });
+              }}
+            />
+          );
+        })()}
+        {(!!t.needs_review || !t.category) && (() => {
+          const tag = tags.find((t) => t.id === 3);
+          return <TagPill color={tag?.color ?? "#E07B4F"} icon={tag?.icon ?? null} label={tag?.name ?? "Needs review"} />;
+        })()}
+      </div>
+
       {/* Amount */}
-      <div className="flex items-center gap-1.5">
-        <button
-          title={t.reimbursable ? "Owed by parents — click to unmark" : "Mark as owed by parents"}
-          onClick={() => {
-            cbRef.current.optimisticUpdate(t.id, { reimbursable: t.reimbursable ? 0 : 1 });
-            cbRef.current.patchTransaction(t.id, { reimbursable: !t.reimbursable });
-          }}
-          className={`shrink-0 rounded p-0.5 transition-colors ${
-            t.reimbursable
-              ? "text-warning"
-              : "text-base-content/20 hover:text-base-content/40"
-          }`}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-            <circle cx="9" cy="7" r="4" />
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-          </svg>
-        </button>
+      <div className="flex items-center">
         <div className="min-w-0 flex-1">
           {isEditingField("amount") ? (
             <input
@@ -411,27 +413,53 @@ const CategoryPopoverPortal = memo(function CategoryPopoverPortal({
 
 const ROW_HEIGHT = 45;
 
+const SEPARATOR_HEIGHT = 32;
+
+type VirtualItem =
+  | { kind: "separator"; date: string; total: number }
+  | { kind: "row"; tx: Transaction };
+
 const VirtualTransactionList = memo(function VirtualTransactionList({
   transactions,
   editing,
   selected,
   accounts,
-  categoryPaths,
+  categoryDisplayMap,
+  tags,
   cbRef,
 }: {
   transactions: Transaction[];
   editing: EditState;
   selected: Set<number>;
   accounts: Account[];
-  categoryPaths: Map<string, string>;
+  categoryDisplayMap: Map<string, CategoryDisplay>;
+  tags: Tag[];
   cbRef: { current: RowCallbacks };
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
 
+  const items = useMemo<VirtualItem[]>(() => {
+    // Pre-compute daily totals
+    const dailyTotals = new Map<string, number>();
+    for (const tx of transactions) {
+      dailyTotals.set(tx.date, (dailyTotals.get(tx.date) ?? 0) + tx.amount * tx.exchange_rate);
+    }
+    const result: VirtualItem[] = [];
+    let lastDate = "";
+    for (const tx of transactions) {
+      if (tx.date !== lastDate) {
+        result.push({ kind: "separator", date: tx.date, total: dailyTotals.get(tx.date) ?? 0 });
+        lastDate = tx.date;
+      }
+      result.push({ kind: "row", tx });
+    }
+    return result;
+  }, [transactions]);
+
   const virtualizer = useVirtualizer({
-    count: transactions.length,
+    count: items.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: (i) => items[i].kind === "separator" ? SEPARATOR_HEIGHT : ROW_HEIGHT,
     overscan: 10,
   });
 
@@ -439,31 +467,38 @@ const VirtualTransactionList = memo(function VirtualTransactionList({
     <div ref={parentRef} className="min-h-0 flex-1 overflow-y-auto">
       <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
         {virtualizer.getVirtualItems().map((vRow) => {
-          const t = transactions[vRow.index];
+          const item = items[vRow.index];
           return (
             <div
-              key={t.id}
+              key={vRow.index}
               data-index={vRow.index}
               ref={virtualizer.measureElement}
-              className="border-b border-base-300"
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                transform: `translateY(${vRow.start}px)`,
-              }}
+              style={{ position: "absolute", top: 0, left: 0, width: "100%", transform: `translateY(${vRow.start}px)` }}
             >
-              <TransactionRow
-                t={t}
-                isEditing={editing !== null && editing.id === t.id}
-                editingField={editing?.id === t.id ? editing.field : null}
-                editingValue={editing?.id === t.id ? editing.value : ""}
-                isSelected={selected.has(t.id)}
-                accounts={accounts}
-                categoryPaths={categoryPaths}
-                cbRef={cbRef}
-              />
+              {item.kind === "separator" ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", height: SEPARATOR_HEIGHT, background: "var(--surface-2)" }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-2)" }}>
+                    {formatDate(item.date)}
+                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: item.total >= 0 ? "var(--pos)" : "var(--neg)" }}>
+                    {item.total >= 0 ? "+" : ""}{formatCurrency(item.total)}
+                  </span>
+                </div>
+              ) : (
+                <div className="border-b border-base-300">
+                  <TransactionRow
+                    t={item.tx}
+                    isEditing={editing !== null && editing.id === item.tx.id}
+                    editingField={editing?.id === item.tx.id ? editing.field : null}
+                    editingValue={editing?.id === item.tx.id ? editing.value : ""}
+                    isSelected={selected.has(item.tx.id)}
+                    accounts={accounts}
+                    categoryDisplayMap={categoryDisplayMap}
+                    tags={tags}
+                    cbRef={cbRef}
+                  />
+                </div>
+              )}
             </div>
           );
         })}
@@ -494,8 +529,8 @@ export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts]         = useState<Account[]>([]);
   const [categories, setCategories]     = useState<string[]>([]);
+  const [tags, setTags]                 = useState<Tag[]>([]);
   const [loading, setLoading]           = useState(true);
-  const [showImport, setShowImport]     = useState(false);
   const [showAdd, setShowAdd]           = useState(false);
   const [filters, setFilters]           = useState<Filters>(DEFAULT_FILTERS);
   const [selected, setSelected]         = useState<Set<number>>(new Set());
@@ -503,17 +538,23 @@ export default function TransactionsPage() {
   const [bulkWorking, setBulkWorking]   = useState(false);
   const [editing, setEditing]           = useState<EditState>(null);
   const [sort, setSort]                 = useState<SortState>({ field: "date", dir: "desc" });
-  const [categoryPaths, setCategoryPaths] = useState<Map<string, string>>(new Map());
+  const [categoryDisplayMap, setCategoryDisplayMap] = useState<Map<string, CategoryDisplay>>(new Map());
   const [popoverSections, setPopoverSections] = useState<Section[]>([]);
   const [recatDialog, setRecatDialog] = useState<RecatDialog | null>(null);
-  const [latestImport, setLatestImport] = useState<LatestImport>(null);
-  const [showUndoConfirm, setShowUndoConfirm] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showMarkParentsConfirm, setShowMarkParentsConfirm] = useState(false);
   const [reimbursableUndo, setReimbursableUndo] = useState<{ ids: number[]; prevStates: Map<number, number> } | null>(null);
-  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const undoTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [localSearch, setLocalSearch] = useState("");
   const catPortalRef = useRef<CatPortalHandle>(null);
   const barRef = useRef<HTMLDivElement>(null);
+
+  const activeFilterCount = [
+    filters.search, filters.from, filters.to, filters.account, filters.category,
+    filters.minAmount, filters.maxAmount,
+    filters.needsReview, filters.reimbursable, filters.transfers,
+  ].filter(Boolean).length;
 
   const uncategorisedCount = transactions.filter((t) => !t.category || t.needs_review).length;
   const allSelected  = transactions.length > 0 && selected.size === transactions.length;
@@ -556,13 +597,38 @@ export default function TransactionsPage() {
       setCategories(Array.isArray(data) ? data : []);
     });
     fetch("/api/categories").then((r) => r.json()).then((data: FlatCat[]) => {
-      setCategoryPaths(buildCategoryPathMap(data));
+      setCategoryDisplayMap(buildCategoryDisplayMap(data));
       setPopoverSections(buildSections(data));
     });
-    fetch("/api/imports").then((r) => r.json()).then(setLatestImport);
+    fetch("/api/tags").then((r) => r.json()).then((data: Tag[]) => {
+      setTags(Array.isArray(data) ? data : []);
+    });
   }, []);
 
   useEffect(() => { fetchTransactions(filters, sort); }, [filters, sort, fetchTransactions]);
+
+  // Refresh when an import completes (triggered from Navbar via custom event)
+  useEffect(() => {
+    const handler = () => fetchTransactions(filters, sort, true);
+    window.addEventListener("ledgr:refresh", handler);
+    window.addEventListener("ledgr:imported", handler);
+    return () => {
+      window.removeEventListener("ledgr:refresh", handler);
+      window.removeEventListener("ledgr:imported", handler);
+    };
+  }, [filters, sort, fetchTransactions]);
+
+  // Keep header search in sync when filters are cleared externally
+  useEffect(() => { setLocalSearch(filters.search); }, [filters.search]);
+
+  function handleSearchInput(val: string) {
+    setLocalSearch(val);
+    clearTimeout(searchTimerRef.current ?? undefined);
+    searchTimerRef.current = setTimeout(
+      () => setFilters((f) => ({ ...f, search: val })),
+      300,
+    );
+  }
 
   function refresh() { fetchTransactions(filters, sort, true); }
 
@@ -688,14 +754,6 @@ export default function TransactionsPage() {
     }
   }
 
-  async function handleUndoImport() {
-    if (!latestImport) return;
-    await fetch(`/api/imports?id=${latestImport.id}`, { method: "DELETE" });
-    setLatestImport(null);
-    setShowUndoConfirm(false);
-    refresh();
-  }
-
   function handleMarkAllReimbursable() {
     if (transactions.length === 0) return;
     setShowMarkParentsConfirm(true);
@@ -782,30 +840,65 @@ export default function TransactionsPage() {
         title={<SplitTitle left="Trans" right="actions" />}
         actions={
           <>
-            {latestImport && (
+            {(activeFilterCount > 0 || localSearch) && (
               <button
-                onClick={() => setShowUndoConfirm(true)}
-                className="btn btn-ghost btn-sm text-error"
+                onClick={() => { setFilters(DEFAULT_FILTERS); handleSearchInput(""); }}
+                className="btn btn-sm btn-ghost"
+                style={{ color: "var(--ink-3)", whiteSpace: "nowrap" }}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 7v6h6" /><path d="M3 13C5 7 10 3 16 3a9 9 0 0 1 0 18H3" />
-                </svg>
-                Undo import
+                Clear all
               </button>
             )}
-            <button onClick={() => setShowAdd(true)} className="btn btn-outline btn-sm w-40">
+            <div style={{ position: "relative", display: "flex", alignItems: "center", width: 240 }}>
+              <svg xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", left: 10, pointerEvents: "none", color: "var(--ink-4)" }} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search…"
+                value={localSearch}
+                onChange={(e) => handleSearchInput(e.target.value)}
+                style={{
+                  width: "100%", height: 40,
+                  paddingLeft: 32, paddingRight: localSearch ? 28 : 10,
+                  fontSize: 13, borderRadius: 5,
+                  border: "1px solid var(--hair-2)",
+                  background: "var(--surface)", color: "var(--ink)",
+                  outline: "none",
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "var(--brand)")}
+                onBlur={(e)  => (e.currentTarget.style.borderColor = "var(--hair-2)")}
+              />
+              {localSearch && (
+                <button
+                  onClick={() => handleSearchInput("")}
+                  style={{ position: "absolute", right: 6, background: "none", border: "none", cursor: "pointer", color: "var(--ink-4)", padding: 2, display: "flex" }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            <TransactionDateFilter
+              from={filters.from}
+              to={filters.to}
+              onChange={(from, to) => setFilters((f) => ({ ...f, from, to }))}
+            />
+            <TransactionFilters
+              filters={filters}
+              accounts={accounts}
+              categoryDisplayMap={categoryDisplayMap}
+              tags={tags}
+              onChange={setFilters}
+              activeFilterCount={activeFilterCount}
+            />
+            <div style={{ width: 1, height: 40, background: "var(--hair-2)", flexShrink: 0 }} />
+            <button onClick={() => setShowAdd(true)} className="btn btn-outline btn-sm">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
               </svg>
-              Add transaction
-            </button>
-            <button onClick={() => setShowImport(true)} className="btn btn-primary btn-sm w-40">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-              Import
+              Add
             </button>
           </>
         }
@@ -836,9 +929,6 @@ export default function TransactionsPage() {
           </div>
         )}
 
-        {/* Filters */}
-        <TransactionFilters filters={filters} accounts={accounts} categories={categories} onChange={setFilters} />
-
         {/* Batch actions toolbar */}
         {!loading && transactions.length > 0 && (
           <div className="flex items-center justify-between px-1">
@@ -863,7 +953,7 @@ export default function TransactionsPage() {
         {/* Table */}
         <div className="v2-card flex min-h-0 flex-1 flex-col">
           {/* Header */}
-          <div className="grid grid-cols-[2.5rem_5.5rem_2fr_1fr_1.5fr_1fr] items-center border-b border-base-300 px-5 py-3">
+          <div className="grid grid-cols-[2.5rem_2fr_1fr_1.5fr_1fr_1fr] items-center border-b border-base-300 px-5 py-3">
             <input
               type="checkbox"
               checked={allSelected}
@@ -872,16 +962,22 @@ export default function TransactionsPage() {
               className="checkbox checkbox-sm"
             />
             {COLUMNS.map((col) => (
-              <button
-                key={col.field}
-                onClick={() => handleSort(col.field)}
-                className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wide transition-colors ${col.field === "amount" ? "justify-end" : ""} ${sort.field === col.field ? "text-base-content" : "text-base-content/50"}`}
-              >
-                {col.label}
-                <span className="text-sm">
-                  {sort.field === col.field ? (sort.dir === "asc" ? "↑" : "↓") : ""}
-                </span>
-              </button>
+              col.field ? (
+                <button
+                  key={col.label}
+                  onClick={() => handleSort(col.field!)}
+                  className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wide transition-colors ${col.field === "amount" ? "justify-end" : ""} ${sort.field === col.field ? "text-base-content" : "text-base-content/50"}`}
+                >
+                  {col.label}
+                  <span className="text-sm">
+                    {sort.field === col.field ? (sort.dir === "asc" ? "↑" : "↓") : ""}
+                  </span>
+                </button>
+              ) : (
+                <div key={col.label} className="text-xs font-semibold uppercase tracking-wide text-base-content/50">
+                  {col.label}
+                </div>
+              )
             ))}
           </div>
 
@@ -903,7 +999,8 @@ export default function TransactionsPage() {
               editing={editing}
               selected={selected}
               accounts={accounts}
-              categoryPaths={categoryPaths}
+              categoryDisplayMap={categoryDisplayMap}
+              tags={tags}
               cbRef={cbRef}
             />
           )}
@@ -1022,44 +1119,7 @@ export default function TransactionsPage() {
       />
 
       {showAdd    && <AddTransactionModal onClose={() => setShowAdd(false)}    onSaved={refresh} />}
-      {showImport && <CsvImportModal      onClose={() => setShowImport(false)} onImported={() => {
-        refresh();
-        fetch("/api/imports").then((r) => r.json()).then(setLatestImport);
-      }} />}
       {showExport && <ExportCsvModal transactions={selectedTxs} onClose={() => setShowExport(false)} />}
-
-      {showUndoConfirm && latestImport && (
-        <div className="modal modal-open">
-          <div className="modal-box">
-            <h2 className="text-lg font-bold">Undo import?</h2>
-            <p className="py-4 text-sm">
-              This will permanently delete{" "}
-              <span className="font-medium">{latestImport.count} transactions</span>
-              {" "}from{" "}
-              <span className="font-medium">{latestImport.account_name}</span>
-              {" "}imported from{" "}
-              <span className="font-mono text-xs">{latestImport.filename}</span>.
-            </p>
-            <div className="modal-action">
-              <button
-                onClick={() => setShowUndoConfirm(false)}
-                className="btn btn-ghost"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleUndoImport}
-                className="btn btn-error"
-              >
-                Delete {latestImport.count} transactions
-              </button>
-            </div>
-          </div>
-          <form method="dialog" className="modal-backdrop">
-            <button onClick={() => setShowUndoConfirm(false)}>close</button>
-          </form>
-        </div>
-      )}
 
       {showMarkParentsConfirm && (
         <div className="modal modal-open">
