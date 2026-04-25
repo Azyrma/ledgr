@@ -632,12 +632,14 @@ export default function TransactionsPage() {
 
   function refresh() { fetchTransactions(filters, sort, true); }
 
+  const DEFAULT_SORT: SortState = { field: "date", dir: "desc" };
+
   function handleSort(field: SortState["field"]) {
-    setSort((prev) =>
-      prev.field === field
-        ? { field, dir: prev.dir === "asc" ? "desc" : "asc" }
-        : { field, dir: "asc" }
-    );
+    setSort((prev) => {
+      if (prev.field !== field) return { field, dir: "asc" };
+      if (prev.dir === "asc") return { field, dir: "desc" };
+      return DEFAULT_SORT;
+    });
   }
 
   function toggleAll() {
