@@ -48,11 +48,25 @@ A high-performance personal finance tracking application built with Next.js and 
 - Node.js 18+
 - npm or yarn
 
+It's recommended to use [mise](https://mise.jdx.dev/) to manage Node.js versions:
+
+```bash
+# Install mise (if not already installed)
+curl https://mise.run | sh
+
+# Install the latest Node.js version
+mise use --global node@latest
+```
+
 ### Installation
 
 ```bash
 # Install dependencies
 npm install
+
+# If you get a "NODE_MODULE_VERSION mismatch" error for better-sqlite3
+# (e.g. after switching Node versions), rebuild the native module:
+npm rebuild better-sqlite3
 
 # Run development server
 npm run dev
