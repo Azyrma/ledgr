@@ -259,9 +259,6 @@ body {
   background: var(--surface);
 }
 .checkbox:checked {
-  background-color: var(--brand);
-  border-color: var(--brand);
-  color: white;
 }
 
 .input, .select, .textarea {
