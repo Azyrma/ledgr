@@ -258,7 +258,11 @@ body {
   border: 1.5px solid var(--hair-2);
   background: var(--surface);
 }
-.checkbox:checked { background-color: var(--brand); border-color: var(--brand); }
+.checkbox:checked {
+  background-color: var(--brand);
+  border-color: var(--brand);
+  color: white;
+}
 
 .input, .select, .textarea {
   border-radius: 5px;
