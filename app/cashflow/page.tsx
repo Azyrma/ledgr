@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { ResponsiveSankey } from "@nivo/sankey";
 import IncomeExpensesChart from "@/app/components/IncomeExpensesChart";
 import PageHeader, { SplitTitle } from "@/app/components/PageHeader";
@@ -131,23 +131,161 @@ function absDelta(cur: number, prev: number): string {
   return `${d >= 0 ? "+" : "−"}CHF ${Math.abs(d).toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
+// ── Account filter dropdown ────────────────────────────────────────────────────
+
+type AccountItem = { id: number; name: string; color: string | null };
+
+function AccountFilterDropdown({
+  accounts,
+  selected,
+  onChange,
+}: {
+  accounts: AccountItem[];
+  selected: number | null;
+  onChange: (id: number | null) => void;
+}) {
+  const [open, setOpen]     = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  const filtered = accounts.filter((a) =>
+    a.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const selectedName = selected ? accounts.find((a) => a.id === selected)?.name : null;
+
+  return (
+    <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className={`btn btn-sm relative ${open || selected ? "btn-neutral" : "btn-outline"}`}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" />
+        </svg>
+        {selectedName ?? "Account"}
+        {selected && (
+          <span
+            className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold"
+            style={{ background: "var(--brand)", color: "var(--brand-ink)" }}
+          >
+            1
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 80,
+          background: "var(--surface)", border: "1px solid var(--hair)",
+          borderRadius: 12, boxShadow: "var(--shadow-3)",
+          padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8,
+          minWidth: 220,
+        }}>
+          {/* Search */}
+          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+            <svg xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", left: 8, pointerEvents: "none", color: "var(--ink-4)" }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                width: "100%", height: 32, paddingLeft: 28, paddingRight: 8,
+                fontSize: 12, borderRadius: 5,
+                border: "1px solid var(--hair-2)",
+                background: "var(--surface)", color: "var(--ink)", outline: "none",
+              }}
+              onFocus={(e) => (e.currentTarget.style.borderColor = "var(--brand)")}
+              onBlur={(e)  => (e.currentTarget.style.borderColor = "var(--hair-2)")}
+            />
+          </div>
+
+          {/* Account list */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 1, overflowY: "auto", maxHeight: 220 }}>
+            <button
+              onClick={() => { onChange(null); setOpen(false); }}
+              style={{
+                textAlign: "left", padding: "6px 8px", borderRadius: 5, fontSize: 13,
+                color: !selected ? "var(--brand)" : "var(--ink-2)",
+                background: !selected ? "var(--brand-soft)" : "transparent",
+                fontWeight: !selected ? 600 : 400,
+              }}
+              onMouseEnter={(e) => { if (selected) (e.currentTarget as HTMLElement).style.background = "var(--surface-2)"; }}
+              onMouseLeave={(e) => { if (selected) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+            >
+              All accounts
+            </button>
+
+            {filtered.map((a) => {
+              const isSelected = selected === a.id;
+              return (
+                <button
+                  key={a.id}
+                  onClick={() => { onChange(isSelected ? null : a.id); setOpen(false); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    textAlign: "left", padding: "6px 8px", borderRadius: 5, fontSize: 13,
+                    color: isSelected ? "var(--brand)" : "var(--ink-2)",
+                    background: isSelected ? "var(--brand-soft)" : "transparent",
+                    fontWeight: isSelected ? 600 : 400,
+                  }}
+                  onMouseEnter={(e) => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = "var(--surface-2)"; }}
+                  onMouseLeave={(e) => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                >
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: a.color ?? "var(--ink-4)", flexShrink: 0 }} />
+                  {a.name}
+                </button>
+              );
+            })}
+
+            {filtered.length === 0 && search && (
+              <div style={{ padding: "6px 8px", fontSize: 12, color: "var(--ink-4)" }}>No matches</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function CashFlowPage() {
-  const [granularity, setGranularity] = useState<Granularity>("month");
-  const [offset, setOffset]           = useState(0);
-  const [data, setData]               = useState<CashflowData | null>(null);
+  const [granularity, setGranularity]         = useState<Granularity>("month");
+  const [offset, setOffset]                   = useState(0);
+  const [data, setData]                       = useState<CashflowData | null>(null);
+  const [accounts, setAccounts]               = useState<AccountItem[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
 
   const { from, to, label } = periodRange(granularity, offset, new Date());
-  const granLabel = granularity; // "month" | "quarter" | "year"
+  const granLabel = granularity;
+
+  useEffect(() => {
+    fetch("/api/accounts")
+      .then((r) => r.json())
+      .then((d) => setAccounts((Array.isArray(d) ? d : []).map((a: AccountItem & Record<string, unknown>) => ({ id: a.id, name: a.name, color: a.color ?? null }))))
+      .catch(console.error);
+  }, []);
 
   useEffect(() => {
     setData(null);
-    fetch(`/api/cashflow?from=${from}&to=${to}`)
+    const accountsParam = selectedAccountId ? `&accountIds=${selectedAccountId}` : "";
+    fetch(`/api/cashflow?from=${from}&to=${to}${accountsParam}`)
       .then((r) => r.json())
       .then(setData)
       .catch(console.error);
-  }, [from, to]);
+  }, [from, to, selectedAccountId]);
 
   function changeGranularity(g: Granularity) {
     setGranularity(g);
@@ -242,6 +380,13 @@ export default function CashFlowPage() {
                 </button>
               ))}
             </div>
+
+            {/* Account filter */}
+            <AccountFilterDropdown
+              accounts={accounts}
+              selected={selectedAccountId}
+              onChange={setSelectedAccountId}
+            />
           </div>
         }
       />
