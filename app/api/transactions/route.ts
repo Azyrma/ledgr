@@ -63,7 +63,25 @@ export function GET(request: NextRequest) {
       LEFT JOIN accounts a ON a.id = t.account_id
       ${where}
       ORDER BY ${orderCol} ${sortDir}, t.id ${sortDir}
-    `).all(...params);
+    `).all(...params) as Record<string, unknown>[];
+
+    if (accountId) {
+      const balances = db.prepare(`
+        SELECT
+          t.id,
+          a.initial_balance + SUM(t.amount) OVER (
+            ORDER BY t.date, t.id
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+          ) AS balance
+        FROM transactions t
+        JOIN accounts a ON a.id = t.account_id
+        WHERE t.account_id = ?
+      `).all(Number(accountId)) as { id: number; balance: number }[];
+      const balanceMap = new Map(balances.map((b) => [b.id, b.balance]));
+      for (const r of rows) {
+        r.balance = balanceMap.get(r.id as number) ?? null;
+      }
+    }
 
     return NextResponse.json(rows);
   } catch (err) {

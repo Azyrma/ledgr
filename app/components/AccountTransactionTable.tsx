@@ -23,6 +23,7 @@ type Transaction = {
   account_currency: string;
   exchange_rate: number;
   linked_transaction_id: number | null;
+  balance: number;
 };
 
 type Account = { id: number; name: string; color: string | null; currency: string; exchange_rate: number };
@@ -38,6 +39,7 @@ const COLUMNS: { label: string; field?: SortState["field"] }[] = [
   { label: "Category",    field: "category" },
   { label: "Tags" },
   { label: "Amount",      field: "amount" },
+  { label: "Balance" },
 ];
 
 type EditState = {
@@ -127,7 +129,7 @@ const TransactionRow = memo(function TransactionRow({
   return (
     <div
       style={{ height: ROW_HEIGHT }}
-      className={`grid grid-cols-[2.5rem_2fr_1.5fr_1fr_1fr] items-center overflow-hidden px-5 transition-colors ${
+      className={`grid grid-cols-[2.5rem_2fr_1.5fr_1fr_1fr_1fr] items-center overflow-hidden px-5 transition-colors ${
         isSelected ? "bg-base-200" : "hover:bg-base-200"
       }`}
     >
@@ -238,7 +240,7 @@ const TransactionRow = memo(function TransactionRow({
       </div>
 
       {/* Amount */}
-      <div className="flex items-center">
+      <div className="flex items-center pr-4">
         <div className="min-w-0 flex-1">
           {isEditingField("amount") ? (
             <input
@@ -270,6 +272,11 @@ const TransactionRow = memo(function TransactionRow({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Balance */}
+      <div className="text-right text-sm tabular-nums text-base-content/70">
+        {formatCurrency(t.balance, t.account_currency || "CHF")}
       </div>
     </div>
   );
@@ -611,7 +618,7 @@ export default function AccountTransactionTable({ accountId, from = "", to = "",
   return (
     <div className="v2-card flex min-h-0 flex-1 flex-col">
       {/* Table header */}
-      <div className="grid grid-cols-[2.5rem_2fr_1.5fr_1fr_1fr] items-center border-b border-base-300 px-5 py-3">
+      <div className="grid grid-cols-[2.5rem_2fr_1.5fr_1fr_1fr_1fr] items-center border-b border-base-300 px-5 py-3">
         <input
           type="checkbox"
           checked={allSelected}
@@ -630,7 +637,7 @@ export default function AccountTransactionTable({ accountId, from = "", to = "",
               <span className="text-sm">{sort.field === col.field ? (sort.dir === "asc" ? "↑" : "↓") : ""}</span>
             </button>
           ) : (
-            <div key={col.label} className="text-xs font-semibold uppercase tracking-wide text-base-content/50">
+            <div key={col.label} className={`text-xs font-semibold uppercase tracking-wide text-base-content/50 ${col.label === "Balance" ? "text-right" : ""}`}>
               {col.label}
             </div>
           )
