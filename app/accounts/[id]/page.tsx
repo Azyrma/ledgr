@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import PageHeader from "@/app/components/PageHeader";
 import NetWorthChart from "@/app/components/NetWorthChart";
-import DateFilter from "@/app/components/DateFilter";
+import TransactionDateFilter from "@/app/components/TransactionDateFilter";
 import AccountTransactionTable from "@/app/components/AccountTransactionTable";
 import TransactionFilters, { DEFAULT_FILTERS, type Filters } from "@/app/components/TransactionFilters";
 import SetCategoryPopover, { buildSections, type Section } from "@/app/components/SetCategoryPopover";
@@ -38,7 +38,8 @@ export default function AccountDetailPage() {
   const router = useRouter();
   const id = params.id as string;
 
-  const [dateRange, setDateRange] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo,   setDateTo]   = useState("");
   const [accountData, setAccountData] = useState<{ account: Account; chart: ChartData } | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -57,7 +58,10 @@ export default function AccountDetailPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/accounts/${id}?dateRange=${dateRange}`);
+        const params = new URLSearchParams();
+        if (dateFrom) params.set("from", dateFrom);
+        if (dateTo)   params.set("to",   dateTo);
+        const res = await fetch(`/api/accounts/${id}?${params}`);
         if (!res.ok) throw new Error("Failed to fetch account data");
         setAccountData(await res.json());
       } catch (err) {
@@ -67,7 +71,7 @@ export default function AccountDetailPage() {
       }
     };
     fetchData();
-  }, [id, dateRange]);
+  }, [id, dateFrom, dateTo]);
 
   useEffect(() => {
     fetch("/api/accounts").then((r) => r.json()).then((data) => {
@@ -172,7 +176,11 @@ export default function AccountDetailPage() {
               activeFilterCount={activeFilterCount}
               hideTabs={["account"]}
             />
-            <DateFilter selected={dateRange} onChange={setDateRange} />
+            <TransactionDateFilter
+              from={dateFrom}
+              to={dateTo}
+              onChange={(f, t) => { setDateFrom(f); setDateTo(t); }}
+            />
           </>
         }
         titleExtra={
@@ -217,7 +225,8 @@ export default function AccountDetailPage() {
 
         <AccountTransactionTable
           accountId={Number(id)}
-          dateRange={dateRange}
+          from={dateFrom}
+          to={dateTo}
           filters={filters}
           accounts={accounts}
           categoryDisplayMap={categoryDisplayMap}

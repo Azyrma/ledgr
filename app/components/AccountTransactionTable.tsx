@@ -418,28 +418,10 @@ const VirtualTransactionList = memo(function VirtualTransactionList({
   );
 });
 
-function dateRangeToFromTo(range: string): { from: string; to: string } {
-  const now = new Date();
-  const toIso = (d: Date) => d.toISOString().split("T")[0];
-  const y = now.getFullYear(), m = now.getMonth();
-  const today = toIso(now);
-  const endOfLastMonth = toIso(new Date(y, m, 0));
-  switch (range) {
-    case "mtd":      return { from: toIso(new Date(y, m, 1)),     to: today };
-    case "1month":   return { from: toIso(new Date(y, m - 1, 1)), to: endOfLastMonth };
-    case "2month":   return { from: toIso(new Date(y, m - 2, 1)), to: endOfLastMonth };
-    case "3month":   return { from: toIso(new Date(y, m - 3, 1)), to: endOfLastMonth };
-    case "6month":   return { from: toIso(new Date(y, m - 6, 1)), to: endOfLastMonth };
-    case "ytd":      return { from: toIso(new Date(y, 0, 1)),     to: today };
-    case "lastyear": return { from: toIso(new Date(y - 1, 0, 1)), to: toIso(new Date(y - 1, 11, 31)) };
-    case "12m":      return { from: toIso(new Date(y - 1, m, now.getDate())), to: today };
-    default:         return { from: "", to: "" };
-  }
-}
-
 type Props = {
   accountId: number;
-  dateRange?: string;
+  from?: string;
+  to?: string;
   filters: Filters;
   accounts: Account[];
   categoryDisplayMap: Map<string, CategoryDisplay>;
@@ -447,7 +429,7 @@ type Props = {
   popoverSections: Section[];
 };
 
-export default function AccountTransactionTable({ accountId, dateRange = "all", filters, accounts, categoryDisplayMap, tags, popoverSections }: Props) {
+export default function AccountTransactionTable({ accountId, from = "", to = "", filters, accounts, categoryDisplayMap, tags, popoverSections }: Props) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading]           = useState(true);
   const [selected, setSelected]         = useState<Set<number>>(new Set());
@@ -467,7 +449,6 @@ export default function AccountTransactionTable({ accountId, dateRange = "all", 
 
   const fetchTransactions = useCallback(async (s: SortState, silent = false) => {
     if (!silent) setLoading(true);
-    const { from, to } = dateRangeToFromTo(dateRange);
     const params = new URLSearchParams({ accountId: String(accountId), sort: s.field, dir: s.dir });
     if (from) params.set("from", from);
     if (to)   params.set("to",   to);
@@ -483,10 +464,10 @@ export default function AccountTransactionTable({ accountId, dateRange = "all", 
     setTransactions(Array.isArray(data) ? data : []);
     setSelected(new Set());
     setLoading(false);
-  }, [accountId, dateRange, filters]);
+  }, [accountId, from, to, filters]);
 
 
-  useEffect(() => { fetchTransactions(sort); }, [sort, dateRange, fetchTransactions]);
+  useEffect(() => { fetchTransactions(sort); }, [sort, from, to, fetchTransactions]);
 
   function refresh() { fetchTransactions(sort, true); }
 
