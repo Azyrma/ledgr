@@ -166,8 +166,10 @@ export default function AccountCard({ account, holdings, periodLabel = "all time
               <div className="muted" style={{ fontSize: 11.5, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase" }}>
                 {hasMarketPrices ? "Market value" : "Cost basis"}
               </div>
-              <div style={{ marginTop: 4, fontSize: 24, fontWeight: 700, color: account.color }}>
-                {formatCurrency(portfolioValue, account.currency)}
+              <div style={{ marginTop: 4 }}>
+                <span className="display-serif num" style={{ fontSize: 24, fontWeight: 500, color: "var(--ink)" }}>
+                  {formatCurrency(portfolioValue, account.currency)}
+                </span>
               </div>
               {hasMarketPrices && costBasis > 0 && (
                 <div style={{ marginTop: 2, fontSize: 12, fontWeight: 500, color: portfolioValue >= costBasis ? "var(--pos)" : "var(--neg)" }}>
