@@ -258,7 +258,12 @@ body {
   border: 1.5px solid var(--hair-2);
   background: var(--surface);
 }
-.checkbox:checked {
+.checkbox:checked,
+.checkbox[aria-checked="true"] {
+  --input-color: var(--brand);
+  background-color: var(--brand);
+  border-color: var(--brand);
+  color: white;
 }
 
 .input, .select, .textarea {
