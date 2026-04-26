@@ -19,22 +19,8 @@ function snapToMonthStart(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
 }
 
-function getDateRange(range: string, now: Date): { from: string; to: string } {
-  const today = toIso(now);
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  const endOfLastMonth = toIso(new Date(y, m, 0));
-  switch (range) {
-    case "mtd":      return { from: toIso(new Date(y, m, 1)),      to: today          };
-    case "1month":   return { from: toIso(new Date(y, m - 1, 1)),  to: endOfLastMonth };
-    case "2month":   return { from: toIso(new Date(y, m - 2, 1)),  to: endOfLastMonth };
-    case "3month":   return { from: toIso(new Date(y, m - 3, 1)),  to: endOfLastMonth };
-    case "6month":   return { from: toIso(new Date(y, m - 6, 1)),  to: endOfLastMonth };
-    case "ytd":      return { from: toIso(new Date(y, 0, 1)),      to: today          };
-    case "lastyear": return { from: toIso(new Date(y - 1, 0, 1)),  to: toIso(new Date(y - 1, 11, 31)) };
-    case "12m":      return { from: toIso(new Date(y - 1, m, now.getDate())), to: today };
-    default:         return { from: "",    to: today };
-  }
+function snapToMonthEnd(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0));
 }
 
 export function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -45,10 +31,10 @@ export function GET(request: NextRequest, { params }: { params: Promise<{ id: st
       const accountId = Number(id);
 
       const { searchParams } = new URL(request.url);
-      const dateRange = searchParams.get("dateRange") ?? "12m";
+      const from = searchParams.get("from") ?? "";
+      const to   = searchParams.get("to")   ?? "";
 
       const now = new Date();
-      const { from, to } = getDateRange(dateRange, now);
 
       // Get account details
       const account = db.prepare(`
@@ -94,7 +80,7 @@ export function GET(request: NextRequest, { params }: { params: Promise<{ id: st
         nwFrom = snapToMonthStart(parseUtcDate(from));
       }
 
-      const nwToDate = parseUtcDate(to);
+      const nwToDate = to ? snapToMonthEnd(parseUtcDate(to)) : parseUtcDate(toIso(now));
       const fullEnd  = nwToDate > now ? nwToDate : now;
       const fullDays = Math.max(2, Math.round((fullEnd.getTime() - nwFrom.getTime()) / 86_400_000) + 1);
       const fullDates: string[] = Array.from({ length: fullDays }, (_, i) => toIso(addDays(nwFrom, i)));
