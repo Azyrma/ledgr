@@ -126,9 +126,14 @@ const TransactionRow = memo(function TransactionRow({
 }) {
   const isEditingField = (field: NonNullable<EditState>["field"]) => isEditing && editingField === field;
 
+  const needsReview = !!t.needs_review || !t.category;
+
   return (
     <div
-      style={{ height: ROW_HEIGHT }}
+      style={{
+        height: ROW_HEIGHT,
+        boxShadow: needsReview ? "inset 3px 0 0 0 #E07B4F" : undefined,
+      }}
       className={`grid grid-cols-[2.5rem_2fr_1.5fr_1fr_1fr_1fr] items-center overflow-hidden px-5 transition-colors ${
         isSelected ? "bg-base-200" : "hover:bg-base-200"
       }`}
@@ -232,10 +237,6 @@ const TransactionRow = memo(function TransactionRow({
               }}
             />
           );
-        })()}
-        {(!!t.needs_review || !t.category) && (() => {
-          const tag = tags.find((tg) => tg.id === 3);
-          return <TagPill color={tag?.color ?? "#E07B4F"} icon={tag?.icon ?? null} label={tag?.name ?? "Needs review"} />;
         })()}
       </div>
 
