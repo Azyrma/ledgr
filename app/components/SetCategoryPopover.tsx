@@ -92,7 +92,17 @@ export default function SetCategoryPopover({ onSelect, onClose, direction = "up"
 
   const q = search.toLowerCase();
   const filteredSections = sections
-    .map((s) => ({ ...s, options: s.options.filter((o) => o.path.toLowerCase().includes(q)) }))
+    .map((s) => {
+      const matched = s.options.filter((o) => o.path.toLowerCase().includes(q));
+      const keepPaths = new Set<string>();
+      for (const o of matched) {
+        const parts = o.path.split(": ");
+        for (let i = 1; i <= parts.length; i++) {
+          keepPaths.add(parts.slice(0, i).join(": "));
+        }
+      }
+      return { ...s, options: s.options.filter((o) => keepPaths.has(o.path)) };
+    })
     .filter((s) => s.options.length > 0);
   const filteredAccounts = accounts.filter((a) =>
     `transfer: ${a.name}`.toLowerCase().includes(q)
@@ -154,7 +164,7 @@ export default function SetCategoryPopover({ onSelect, onClose, direction = "up"
                     style={{ paddingLeft }}
                     title={o.path}
                   >
-                    {search ? o.path : o.label}
+                    {o.label}
                   </p>
                 );
               }
@@ -176,7 +186,7 @@ export default function SetCategoryPopover({ onSelect, onClose, direction = "up"
                       : <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
                     }
                     <span className="truncate text-xs font-medium" style={{ color }}>
-                      {search ? o.path : o.label}
+                      {o.label}
                     </span>
                   </span>
                 </button>
