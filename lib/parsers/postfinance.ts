@@ -1,4 +1,3 @@
-import { lookupCategory } from "../categories";
 import type { ParsedTransaction } from "./types";
 
 function stripExcelLiteral(value: string): string {
@@ -46,7 +45,7 @@ export function parsePostfinance(text: string): ParsedTransaction[] {
       date: parseDate(dateStr),
       description,
       amount,
-      category: lookupCategory(description),
+      category: "",
     });
   }
 
