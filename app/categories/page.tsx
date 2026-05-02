@@ -502,7 +502,7 @@ export default function CategoriesPage() {
             {/* Right: Tags */}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: 12 }}>Tags</div>
-              {tags.map((tag) => (
+              {tags.filter((tag) => tag.id !== 3).map((tag) => (
                 <TagRow key={tag.id} tag={tag} onSave={handleSaveTag} onDelete={(id, name) => setDeleteTagTarget({ id, name })} />
               ))}
               <AddTagForm onAdd={handleAddTag} />
