@@ -38,7 +38,9 @@ export default function NetWorthChart({
 
   const dataMax = Math.max(...values);
   const dataMin = Math.min(...values);
-  const hasNegative = dataMin < 0;
+  // Treat tiny floating-point noise as zero — only show the negative axis if
+  // the balance ever truly went below zero (more than 1 cent).
+  const hasNegative = dataMin < -0.01;
 
   // When negative values exist, center zero and scale symmetrically outward.
   const extent = hasNegative ? Math.max(Math.abs(dataMax), Math.abs(dataMin)) : dataMax;
@@ -175,11 +177,15 @@ export default function NetWorthChart({
           </text>
           {tooltipDelta !== null && (() => {
             const prevValue = tooltipValue - tooltipDelta;
-            const pct = prevValue !== 0 ? (tooltipDelta / Math.abs(prevValue)) * 100 : 0;
+            const hasMeaningfulBase = Math.abs(prevValue) >= 1;
+            const pct = hasMeaningfulBase ? (tooltipDelta / Math.abs(prevValue)) * 100 : 0;
             return (
               <text x={tx + 12} y={ty + 52} fontSize="10.5" fontFamily="'JetBrains Mono', monospace" fontWeight="500"
                 fill={tooltipDelta >= 0 ? "var(--pos)" : "var(--neg)"}>
-                {tooltipDelta >= 0 ? "+" : "−"}{Math.abs(pct).toFixed(1)}% vs prev month
+                {tooltipDelta >= 0 ? "+" : "−"}
+                {hasMeaningfulBase
+                  ? `${Math.abs(pct).toFixed(1)}% vs prev month`
+                  : `${formatCurrency(Math.abs(tooltipDelta), "CHF", 0)} vs prev month`}
               </text>
             );
           })()}
