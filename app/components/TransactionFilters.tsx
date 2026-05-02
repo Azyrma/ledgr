@@ -39,7 +39,6 @@ const DEFAULT_CAT_COLOR = "#A89080";
 const SYSTEM_TAG_FILTER_KEY: Record<number, keyof Filters> = {
   1: "transfers",
   2: "reimbursable",
-  3: "needsReview",
 };
 
 type Props = {
@@ -65,7 +64,7 @@ function tabHasActive(tab: Tab, filters: Filters): boolean {
   if (tab === "category")  return !!filters.category;
   if (tab === "account")   return !!filters.account;
   if (tab === "amount")    return !!(filters.minAmount || filters.maxAmount);
-  if (tab === "tags")      return filters.needsReview || filters.reimbursable || filters.transfers;
+  if (tab === "tags")      return filters.reimbursable || filters.transfers;
   return false;
 }
 
