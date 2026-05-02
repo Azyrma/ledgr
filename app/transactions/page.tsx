@@ -914,7 +914,14 @@ export default function TransactionsPage() {
       <div className="flex min-h-0 flex-1 flex-col gap-4 px-9 pb-8 pt-2">
         {/* Review banner */}
         {uncategorisedCount > 0 && (
-          <div className="alert alert-warning flex items-center justify-between">
+          <div
+            className="alert flex items-center justify-between"
+            style={{
+              backgroundColor: "rgba(224, 123, 79, 0.12)",
+              borderColor: "rgba(224, 123, 79, 0.4)",
+              color: "#E07B4F",
+            }}
+          >
             <div className="flex items-start gap-3">
               <svg xmlns="http://www.w3.org/2000/svg" className="mt-0.5 h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -922,14 +929,19 @@ export default function TransactionsPage() {
               </svg>
               <div>
                 <p className="text-sm font-semibold">Some transactions need review</p>
-                <p className="mt-0.5 text-sm">
+                <p className="mt-0.5 text-sm opacity-90">
                   {uncategorisedCount} transaction{uncategorisedCount !== 1 ? "s" : ""} need categorization
                 </p>
               </div>
             </div>
             <button
               onClick={() => setFilters((f) => ({ ...f, needsReview: !f.needsReview }))}
-              className={`shrink-0 btn btn-sm ${filters.needsReview ? "btn-warning" : "btn-ghost"}`}
+              className="shrink-0 btn btn-sm border"
+              style={{
+                backgroundColor: filters.needsReview ? "#E07B4F" : "transparent",
+                borderColor: "#E07B4F",
+                color: filters.needsReview ? "#fff" : "#E07B4F",
+              }}
             >
               {filters.needsReview ? "Show all" : "Show reviewable"}
             </button>
