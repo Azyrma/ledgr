@@ -21,10 +21,13 @@ type Transaction = {
 type Props = {
   transactions: Transaction[];
   onClose: () => void;
+  /** When provided, amounts are exported in this currency (no CHF conversion). Use for single-account exports. */
+  currency?: string;
 };
 
-export default function ExportCsvModal({ transactions, onClose }: Props) {
+export default function ExportCsvModal({ transactions, onClose, currency }: Props) {
   const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
+  const displayCurrency = currency ?? "CHF";
 
   const rows: Array<{
     date: string;
@@ -37,14 +40,14 @@ export default function ExportCsvModal({ transactions, onClose }: Props) {
 
   let runningTotal = 0;
   for (const t of sorted) {
-    const amountChf = t.amount * t.exchange_rate;
-    runningTotal += amountChf;
+    const amount = currency ? t.amount : t.amount * t.exchange_rate;
+    runningTotal += amount;
     rows.push({
       date: t.date,
       description: t.description,
       account: t.account_name,
       category: t.category || "",
-      amount: amountChf,
+      amount,
       runningTotal: runningTotal,
     });
   }
@@ -55,7 +58,7 @@ export default function ExportCsvModal({ transactions, onClose }: Props) {
   }
 
   function generateCsv(): string {
-    const headers = ["Date", "Description", "Account", "Category", "Amount (CHF)", "Running Total"];
+    const headers = ["Date", "Description", "Account", "Category", `Amount (${displayCurrency})`, "Running Total"];
     const csvRows: string[] = [headers.map(quoteField).join(",")];
 
     for (const row of rows) {
@@ -123,8 +126,8 @@ export default function ExportCsvModal({ transactions, onClose }: Props) {
                   <td>{row.description}</td>
                   <td>{row.account}</td>
                   <td>{row.category}</td>
-                  <td className="text-right font-mono">{formatCurrency(row.amount)}</td>
-                  <td className="text-right font-mono">{formatCurrency(row.runningTotal)}</td>
+                  <td className="text-right font-mono">{formatCurrency(row.amount, displayCurrency)}</td>
+                  <td className="text-right font-mono">{formatCurrency(row.runningTotal, displayCurrency)}</td>
                 </tr>
               ))}
             </tbody>

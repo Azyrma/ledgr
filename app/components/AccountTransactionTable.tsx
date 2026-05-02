@@ -452,6 +452,7 @@ export default function AccountTransactionTable({ accountId, from = "", to = "",
   const allSelected  = transactions.length > 0 && selected.size === transactions.length;
   const someSelected = selected.size > 0 && !allSelected;
   const selectedTxs  = transactions.filter((t) => selected.has(t.id));
+  const accountCurrency = accounts.find((a) => a.id === accountId)?.currency ?? "CHF";
   const canLink      = selected.size === 2 && selectedTxs.every((t) => t.linked_transaction_id === null);
   const canUnlink    = selected.size === 1 && selectedTxs[0]?.linked_transaction_id !== null;
 
@@ -675,7 +676,7 @@ export default function AccountTransactionTable({ accountId, from = "", to = "",
               {selected.size} transaction{selected.size !== 1 ? "s" : ""} selected
             </span>
             <span className="text-sm text-base-content/50 whitespace-nowrap">
-              {formatCurrency(selectedTxs.reduce((sum, t) => sum + t.amount * t.exchange_rate, 0))}
+              {formatCurrency(selectedTxs.reduce((sum, t) => sum + t.amount, 0), accountCurrency)}
             </span>
             <div className="h-4 w-px bg-base-300" />
 
@@ -738,7 +739,7 @@ export default function AccountTransactionTable({ accountId, from = "", to = "",
 
       <CategoryPopoverPortal handleRef={catPortalRef} sections={popoverSections} accounts={accounts} cbRef={cbRef} />
 
-      {showExport && <ExportCsvModal transactions={selectedTxs} onClose={() => setShowExport(false)} />}
+      {showExport && <ExportCsvModal transactions={selectedTxs} currency={accountCurrency} onClose={() => setShowExport(false)} />}
 
       {recatDialog && (
         <div className="modal modal-open">
