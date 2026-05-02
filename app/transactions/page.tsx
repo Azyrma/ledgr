@@ -543,8 +543,8 @@ export default function TransactionsPage() {
   const [popoverSections, setPopoverSections] = useState<Section[]>([]);
   const [recatDialog, setRecatDialog] = useState<RecatDialog | null>(null);
   const [showExport, setShowExport] = useState(false);
-  const [showMarkParentsConfirm, setShowMarkParentsConfirm] = useState(false);
   const [reimbursableUndo, setReimbursableUndo] = useState<{ ids: number[]; prevStates: Map<number, number> } | null>(null);
+  const [showMarkParentsConfirm, setShowMarkParentsConfirm] = useState(false);
   const undoTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [localSearch, setLocalSearch] = useState("");
@@ -757,16 +757,20 @@ export default function TransactionsPage() {
     }
   }
 
-  function handleMarkAllReimbursable() {
-    if (transactions.length === 0) return;
+  function handleMarkSelectedReimbursable() {
+    if (selected.size === 0) return;
     setShowMarkParentsConfirm(true);
   }
 
-  function confirmMarkAllReimbursable() {
+  function confirmMarkSelectedReimbursable() {
     setShowMarkParentsConfirm(false);
-    const ids = transactions.map((t) => t.id);
-    const prevStates = new Map(transactions.map((t) => [t.id, t.reimbursable]));
-    setTransactions(prev => prev.map(t => ({ ...t, reimbursable: 1 })));
+    const ids = [...selected];
+    const idSet = new Set(ids);
+    const prevStates = new Map(
+      transactions.filter((t) => idSet.has(t.id)).map((t) => [t.id, t.reimbursable])
+    );
+    setTransactions(prev => prev.map(t => idSet.has(t.id) ? { ...t, reimbursable: 1 } : t));
+    setSelected(new Set());
     fetch("/api/transactions/bulk", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -934,22 +938,10 @@ export default function TransactionsPage() {
 
         {/* Batch actions toolbar */}
         {!loading && transactions.length > 0 && (
-          <div className="flex items-center justify-between px-1">
+          <div className="flex items-center px-1">
             <span className="text-xs text-base-content/50">
               {transactions.length} transaction{transactions.length !== 1 ? "s" : ""}
             </span>
-            <button
-              onClick={handleMarkAllReimbursable}
-              className="btn btn-ghost btn-xs"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-              Mark all {transactions.length} as owed by parents
-            </button>
           </div>
         )}
 
@@ -1088,11 +1080,31 @@ export default function TransactionsPage() {
               </button>
             )}
 
+            {/* Mark as owed by parents */}
+            <button
+              onClick={handleMarkSelectedReimbursable}
+              disabled={bulkWorking}
+              className="btn btn-ghost btn-sm disabled:opacity-50"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              Mark {selected.size} as owed by parents
+            </button>
+
             {/* Delete */}
             <button
               onClick={handleBulkDelete}
               disabled={bulkWorking}
-              className="btn btn-ghost btn-sm text-error disabled:opacity-50"
+              style={{
+                backgroundColor: "rgba(220, 38, 38, 0.12)",
+                borderColor: "rgba(220, 38, 38, 0.5)",
+                color: "#dc2626",
+              }}
+              className="btn btn-sm border disabled:opacity-50 hover:!bg-[rgba(220,38,38,0.22)]"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="3 6 5 6 21 6" />
@@ -1129,13 +1141,13 @@ export default function TransactionsPage() {
           <div className="modal-box">
             <h2 className="text-lg font-bold">Mark as owed by parents?</h2>
             <p className="py-4 text-sm">
-              This will mark all{" "}
-              <span className="font-medium">{transactions.length} transaction{transactions.length !== 1 ? "s" : ""}</span>
-              {" "}in the current view as owed by parents.
+              This will mark{" "}
+              <span className="font-medium">{selected.size} transaction{selected.size !== 1 ? "s" : ""}</span>
+              {" "}as owed by parents.
             </p>
             <div className="modal-action">
               <button onClick={() => setShowMarkParentsConfirm(false)} className="btn btn-ghost">Cancel</button>
-              <button onClick={confirmMarkAllReimbursable} className="btn btn-primary">Confirm</button>
+              <button onClick={confirmMarkSelectedReimbursable} className="btn btn-primary">Confirm</button>
             </div>
           </div>
           <form method="dialog" className="modal-backdrop">
