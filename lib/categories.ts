@@ -1,34 +1,3 @@
-const CATEGORY_LOOKUP: Record<string, string> = {
-  "coop":                               "Needs: General: Groceries",
-  "migros":                             "Needs: General: Groceries",
-  "volg":                               "Needs: General: Groceries",
-  "too good to go":                     "Wants: Entertainment: Eating out",
-  "sv (schweiz) ag":                    "Wants: Entertainment: Eating out",
-  "compass group":                      "Wants: Entertainment: Eating out",
-  "hot pasta ag":                       "Wants: Entertainment: Eating out",
-  "the lemon grass":                    "Wants: Entertainment: Eating out",
-  "kebab haus":                         "Wants: Entertainment: Eating out",
-  "mcdonald":                           "Wants: Entertainment: Eating out",
-  "selecta ag":                         "Wants: Entertainment: Eating out",
-  "sbb mobile":                         "Needs: Transportation: Public Transportation",
-  "urban connect":                      "Needs: Transportation: Public Transportation",
-  "zürcher verkehrsverbund":            "Needs: Transportation: Public Transportation",
-  "mobility kundenrechnungen":          "Needs: Transportation: Public Transportation",
-  "zalando":                            "Wants: General: Clothing",
-  "sunrise gmbh":                       "Needs: General: Phone",
-  "galaxus abos":                       "Needs: General: Phone",
-  "verein der informatik studierenden": "Needs: Education: Student Association",
-  "gutschrift von eth zürich":          "Income: Salary",
-};
-
-export function lookupCategory(description: string): string {
-  const lower = description.toLowerCase();
-  for (const [key, category] of Object.entries(CATEGORY_LOOKUP)) {
-    if (lower.includes(key)) return category;
-  }
-  return "";
-}
-
 // ── Category tree utilities ────────────────────────────────────────────────────
 
 // Root system nodes are excluded from paths so paths are globally unique.

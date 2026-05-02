@@ -1,5 +1,4 @@
 import * as XLSX from "xlsx";
-import { lookupCategory } from "../categories";
 import type { ParsedTransaction } from "./types";
 
 export function parseHandelsbanken(buffer: Buffer): ParsedTransaction[] {
@@ -39,7 +38,7 @@ export function parseHandelsbanken(buffer: Buffer): ParsedTransaction[] {
       date: isoDate,
       description,
       amount,
-      category: lookupCategory(description),
+      category: "",
     });
   }
 

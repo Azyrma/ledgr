@@ -1,4 +1,3 @@
-import { lookupCategory } from "../categories";
 import type { ParsedTransaction } from "./types";
 
 function parseDate(str: string): string {
@@ -36,7 +35,7 @@ export function parsePostfinanceCC(text: string): ParsedTransaction[] {
       date: parseDate(purchaseDateStr),
       description,
       amount,
-      category: lookupCategory(description),
+      category: "",
     });
   }
 
