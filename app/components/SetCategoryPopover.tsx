@@ -2,9 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import { buildCategoryNodeMap, getCategoryPath, type FlatCat } from "@/lib/categories";
+import { CATEGORY_ICON_MAP } from "./CategoryModal";
 
+const DEFAULT_CAT_COLOR = "#A89080";
 
-type Option = { value: string; label: string; path: string; depth: number };
+type Option = {
+  value: string;
+  label: string;
+  path: string;
+  depth: number;
+  isLeaf: boolean;
+  color: string | null;
+  icon: string | null;
+};
 export type Section = { label: string; options: Option[] };
 export type TransferAccount = { id: number; name: string; color: string | null };
 
@@ -19,16 +29,25 @@ type Props = {
 export function buildSections(cats: FlatCat[]): Section[] {
   const map = buildCategoryNodeMap(cats);
 
-  function collect(id: number, depth = 0): Option[] {
+  function collect(
+    id: number,
+    depth = 0,
+    inheritedColor: string | null = null,
+    inheritedIcon: string | null = null,
+  ): Option[] {
     const node = map.get(id);
     if (!node) return [];
     if (node.is_system) {
-      return node.children.flatMap((c) => collect(c.id, depth));
+      return node.children.flatMap((c) => collect(c.id, depth, inheritedColor, inheritedIcon));
     }
     const path = getCategoryPath(id, map);
+    const color = node.color ?? inheritedColor;
+    const icon = node.icon ?? inheritedIcon;
+    const userChildren = node.children.filter((c) => !c.is_system);
+    const isLeaf = userChildren.length === 0;
     return [
-      { value: path, label: node.name, path, depth },
-      ...node.children.flatMap((c) => collect(c.id, depth + 1)),
+      { value: path, label: node.name, path, depth, isLeaf, color, icon },
+      ...node.children.flatMap((c) => collect(c.id, depth + 1, color, icon)),
     ];
   }
 
@@ -122,17 +141,47 @@ export default function SetCategoryPopover({ onSelect, onClose, direction = "up"
             <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-base-content/40">
               {section.label}
             </p>
-            {section.options.map((o) => (
-              <button
-                key={o.value}
-                onClick={() => onSelect(o.value)}
-                className="flex w-full items-center gap-1.5 py-1.5 pr-3 text-left text-sm hover:bg-base-200"
-                style={{ paddingLeft: `${12 + o.depth * 12}px` }}
-              >
-                {o.depth > 0 && <span className="text-base-content/30">└</span>}
-                {search ? <span className="truncate">{o.path}</span> : o.label}
-              </button>
-            ))}
+            {section.options.map((o) => {
+              const color = o.color ?? DEFAULT_CAT_COLOR;
+              const Icon = o.icon ? CATEGORY_ICON_MAP[o.icon] : null;
+              const paddingLeft = `${12 + o.depth * 12}px`;
+
+              if (!o.isLeaf) {
+                return (
+                  <p
+                    key={o.value}
+                    className="py-1 pr-3 text-xs font-semibold uppercase tracking-wide text-base-content/50"
+                    style={{ paddingLeft }}
+                    title={o.path}
+                  >
+                    {search ? o.path : o.label}
+                  </p>
+                );
+              }
+
+              return (
+                <button
+                  key={o.value}
+                  onClick={() => onSelect(o.value)}
+                  className="flex w-full items-center py-1 pr-3 text-left text-sm hover:bg-base-200"
+                  style={{ paddingLeft }}
+                  title={o.path}
+                >
+                  <span
+                    className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full px-1.5 py-0.5"
+                    style={{ backgroundColor: `${color}22`, border: `1px solid ${color}55` }}
+                  >
+                    {Icon
+                      ? <Icon size={11} color={color} strokeWidth={2} className="shrink-0" />
+                      : <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                    }
+                    <span className="truncate text-xs font-medium" style={{ color }}>
+                      {search ? o.path : o.label}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
         ))}
 
