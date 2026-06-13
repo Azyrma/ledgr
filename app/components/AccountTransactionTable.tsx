@@ -435,9 +435,10 @@ type Props = {
   categoryDisplayMap: Map<string, CategoryDisplay>;
   tags: Tag[];
   popoverSections: Section[];
+  onTransactionsChange?: (txs: Transaction[]) => void;
 };
 
-export default function AccountTransactionTable({ accountId, from = "", to = "", filters, accounts, categoryDisplayMap, tags, popoverSections }: Props) {
+export default function AccountTransactionTable({ accountId, from = "", to = "", filters, accounts, categoryDisplayMap, tags, popoverSections, onTransactionsChange }: Props) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading]           = useState(true);
   const [selected, setSelected]         = useState<Set<number>>(new Set());
@@ -477,6 +478,8 @@ export default function AccountTransactionTable({ accountId, from = "", to = "",
 
 
   useEffect(() => { fetchTransactions(sort); }, [sort, from, to, fetchTransactions]);
+
+  useEffect(() => { onTransactionsChange?.(transactions); }, [transactions, onTransactionsChange]);
 
   function refresh() { fetchTransactions(sort, true); }
 

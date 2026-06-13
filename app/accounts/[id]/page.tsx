@@ -5,7 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import PageHeader from "@/app/components/PageHeader";
 import NetWorthChart from "@/app/components/NetWorthChart";
 import TransactionDateFilter from "@/app/components/TransactionDateFilter";
+import DownloadMenu from "@/app/components/DownloadMenu";
 import AccountTransactionTable from "@/app/components/AccountTransactionTable";
+import ExportCsvModal from "@/app/components/ExportCsvModal";
 import TransactionFilters, { DEFAULT_FILTERS, type Filters } from "@/app/components/TransactionFilters";
 import SetCategoryPopover, { buildSections, type Section } from "@/app/components/SetCategoryPopover";
 import { buildCategoryDisplayMap, type CategoryDisplay, type FlatCat } from "@/lib/categories";
@@ -20,6 +22,22 @@ type Account = {
   initial_balance: number;
   exchange_rate: number;
   balance: number;
+};
+
+type Transaction = {
+  id: number;
+  date: string;
+  description: string;
+  amount: number;
+  category: string;
+  reimbursable: number;
+  needs_review: number;
+  account_id: number;
+  account_name: string;
+  account_color: string;
+  account_currency: string;
+  exchange_rate: number;
+  linked_transaction_id: number | null;
 };
 
 type AccountRow = { id: number; name: string; color: string | null; currency: string; exchange_rate: number };
@@ -47,6 +65,10 @@ export default function AccountDetailPage() {
   const [filters, setFilters]         = useState<Filters>(DEFAULT_FILTERS);
   const [localSearch, setLocalSearch] = useState("");
   const searchTimerRef                = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Export / download state
+  const [filteredTxs, setFilteredTxs] = useState<Transaction[]>([]);
+  const [exportTxs, setExportTxs]     = useState<Transaction[] | null>(null);
 
   // Data needed by TransactionFilters and AccountTransactionTable
   const [accounts, setAccounts]               = useState<AccountRow[]>([]);
@@ -90,6 +112,16 @@ export default function AccountDetailPage() {
   }, []);
 
   const handleBack = useCallback(() => { router.push("/accounts"); }, [router]);
+
+  const handleDownload = useCallback(async (mode: "filtered" | "all") => {
+    if (mode === "filtered") {
+      setExportTxs(filteredTxs);
+      return;
+    }
+    const res = await fetch(`/api/transactions?accountId=${id}`);
+    const data = await res.json();
+    setExportTxs(Array.isArray(data) ? data : []);
+  }, [filteredTxs, id]);
 
   const activeFilterCount = [
     filters.category, filters.minAmount, filters.maxAmount,
@@ -181,6 +213,7 @@ export default function AccountDetailPage() {
               to={dateTo}
               onChange={(f, t) => { setDateFrom(f); setDateTo(t); }}
             />
+            <DownloadMenu onSelect={handleDownload} />
           </>
         }
         titleExtra={
@@ -232,8 +265,17 @@ export default function AccountDetailPage() {
           categoryDisplayMap={categoryDisplayMap}
           tags={tags}
           popoverSections={popoverSections}
+          onTransactionsChange={setFilteredTxs}
         />
       </div>
+
+      {exportTxs && (
+        <ExportCsvModal
+          transactions={exportTxs}
+          currency={account.currency}
+          onClose={() => setExportTxs(null)}
+        />
+      )}
     </div>
   );
 }
