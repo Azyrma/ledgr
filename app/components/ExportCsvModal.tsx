@@ -16,6 +16,7 @@ type Transaction = {
   account_currency: string;
   exchange_rate: number;
   linked_transaction_id: number | null;
+  balance?: number | null;
 };
 
 type Props = {
@@ -29,13 +30,18 @@ export default function ExportCsvModal({ transactions, onClose, currency }: Prop
   const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
   const displayCurrency = currency ?? "CHF";
 
+  // For single-account exports we show the account's true running balance
+  // (initial balance + cumulative amount); otherwise a running total from 0.
+  const useBalance = currency != null;
+  const totalLabel = useBalance ? "Balance" : "Running Total";
+
   const rows: Array<{
     date: string;
     description: string;
     account: string;
     category: string;
     amount: number;
-    runningTotal: number;
+    total: number;
   }> = [];
 
   let runningTotal = 0;
@@ -48,7 +54,7 @@ export default function ExportCsvModal({ transactions, onClose, currency }: Prop
       account: t.account_name,
       category: t.category || "",
       amount,
-      runningTotal: runningTotal,
+      total: useBalance ? (t.balance ?? runningTotal) : runningTotal,
     });
   }
 
@@ -58,7 +64,7 @@ export default function ExportCsvModal({ transactions, onClose, currency }: Prop
   }
 
   function generateCsv(): string {
-    const headers = ["Date", "Description", "Account", "Category", `Amount (${displayCurrency})`, "Running Total"];
+    const headers = ["Date", "Description", "Account", "Category", `Amount (${displayCurrency})`, totalLabel];
     const csvRows: string[] = [headers.map(quoteField).join(",")];
 
     for (const row of rows) {
@@ -68,7 +74,7 @@ export default function ExportCsvModal({ transactions, onClose, currency }: Prop
         quoteField(row.account),
         quoteField(row.category),
         row.amount.toFixed(2),
-        row.runningTotal.toFixed(2),
+        row.total.toFixed(2),
       ].join(","));
     }
 
@@ -116,7 +122,7 @@ export default function ExportCsvModal({ transactions, onClose, currency }: Prop
                 <th>Account</th>
                 <th>Category</th>
                 <th className="text-right">Amount</th>
-                <th className="text-right">Running Total</th>
+                <th className="text-right">{totalLabel}</th>
               </tr>
             </thead>
             <tbody>
@@ -127,7 +133,7 @@ export default function ExportCsvModal({ transactions, onClose, currency }: Prop
                   <td>{row.account}</td>
                   <td>{row.category}</td>
                   <td className="text-right font-mono">{formatCurrency(row.amount, displayCurrency)}</td>
-                  <td className="text-right font-mono">{formatCurrency(row.runningTotal, displayCurrency)}</td>
+                  <td className="text-right font-mono">{formatCurrency(row.total, displayCurrency)}</td>
                 </tr>
               ))}
             </tbody>
