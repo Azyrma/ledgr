@@ -291,10 +291,6 @@ const TransactionRow = memo(function TransactionRow({
               color={tag?.color ?? "#C49A3C"}
               icon={tag?.icon ?? null}
               label={tag?.name ?? "Owed by parents"}
-              onClick={() => {
-                cbRef.current.optimisticUpdate(t.id, { reimbursable: 0 });
-                cbRef.current.patchTransaction(t.id, { reimbursable: false });
-              }}
             />
           );
         })()}
@@ -563,6 +559,7 @@ export default function TransactionsPage() {
   const selectedTxs  = transactions.filter((t) => selected.has(t.id));
   const canLink      = selected.size === 2 && selectedTxs.every((t) => t.linked_transaction_id === null);
   const canUnlink    = selected.size === 1 && selectedTxs[0]?.linked_transaction_id !== null;
+  const allReimbursable = selected.size > 0 && selectedTxs.every((t) => t.reimbursable === 1);
 
   const fetchTransactions = useCallback(async (f: Filters, s: SortState, silent = false) => {
     if (!silent) setLoading(true);
@@ -788,6 +785,19 @@ export default function TransactionsPage() {
     setReimbursableUndo(null);
     const { ids, prevStates } = reimbursableUndo;
     setTransactions(prev => prev.map(t => prevStates.has(t.id) ? { ...t, reimbursable: prevStates.get(t.id)! } : t));
+    fetch("/api/transactions/bulk", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, reimbursable: false }),
+    }).catch(() => refresh());
+  }
+
+  function handleRemoveSelectedReimbursable() {
+    if (selected.size === 0) return;
+    const ids = [...selected];
+    const idSet = new Set(ids);
+    setTransactions(prev => prev.map(t => idSet.has(t.id) ? { ...t, reimbursable: 0 } : t));
+    setSelected(new Set());
     fetch("/api/transactions/bulk", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -1092,20 +1102,35 @@ export default function TransactionsPage() {
               </button>
             )}
 
-            {/* Mark as owed by parents */}
-            <button
-              onClick={handleMarkSelectedReimbursable}
-              disabled={bulkWorking}
-              className="btn btn-ghost btn-sm disabled:opacity-50"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-              Mark {selected.size} as owed by parents
-            </button>
+            {/* Owed by parents tag — remove if all selected have it, otherwise add */}
+            {allReimbursable ? (
+              <button
+                onClick={handleRemoveSelectedReimbursable}
+                disabled={bulkWorking}
+                className="btn btn-ghost btn-sm disabled:opacity-50"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <line x1="17" y1="8" x2="23" y2="8" />
+                </svg>
+                Remove owed by parents
+              </button>
+            ) : (
+              <button
+                onClick={handleMarkSelectedReimbursable}
+                disabled={bulkWorking}
+                className="btn btn-ghost btn-sm disabled:opacity-50"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                Mark {selected.size} as owed by parents
+              </button>
+            )}
 
             {/* Delete */}
             <button
