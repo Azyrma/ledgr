@@ -261,15 +261,8 @@ const TransactionRow = memo(function TransactionRow({
               title="Click to edit"
             >
               <span className={`block text-sm font-medium tabular-nums ${t.amount >= 0 ? "text-success" : "text-base-content"}`}>
-                {t.account_currency && t.account_currency !== "CHF"
-                  ? formatCurrency(t.amount, t.account_currency)
-                  : formatCurrency(t.amount)}
+                {formatCurrency(t.amount, t.account_currency || "CHF")}
               </span>
-              {t.account_currency && t.account_currency !== "CHF" && (
-                <span className="block text-xs text-base-content/40 tabular-nums">
-                  {`≈ ${formatCurrency(t.amount * t.exchange_rate, "CHF")}`}
-                </span>
-              )}
             </div>
           )}
         </div>
@@ -350,6 +343,7 @@ const VirtualTransactionList = memo(function VirtualTransactionList({
   selected,
   categoryDisplayMap,
   tags,
+  currency,
   cbRef,
 }: {
   transactions: Transaction[];
@@ -357,6 +351,7 @@ const VirtualTransactionList = memo(function VirtualTransactionList({
   selected: Set<number>;
   categoryDisplayMap: Map<string, CategoryDisplay>;
   tags: Tag[];
+  currency: string;
   cbRef: { current: RowCallbacks };
 }) {
   const parentRef = useRef<HTMLDivElement>(null);
@@ -364,7 +359,7 @@ const VirtualTransactionList = memo(function VirtualTransactionList({
   const items = useMemo<VirtualItem[]>(() => {
     const dailyTotals = new Map<string, number>();
     for (const tx of transactions) {
-      dailyTotals.set(tx.date, (dailyTotals.get(tx.date) ?? 0) + tx.amount * tx.exchange_rate);
+      dailyTotals.set(tx.date, (dailyTotals.get(tx.date) ?? 0) + tx.amount);
     }
     const result: VirtualItem[] = [];
     let lastDate = "";
@@ -401,7 +396,7 @@ const VirtualTransactionList = memo(function VirtualTransactionList({
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", height: SEPARATOR_HEIGHT, background: "var(--surface-2)" }}>
                   <span style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-2)" }}>{formatDate(item.date)}</span>
                   <span style={{ fontSize: 12, fontWeight: 600, color: item.total >= 0 ? "var(--pos)" : "var(--neg)" }}>
-                    {item.total >= 0 ? "+" : ""}{formatCurrency(item.total)}
+                    {item.total >= 0 ? "+" : "−"}{formatCurrency(Math.abs(item.total), currency)}
                   </span>
                 </div>
               ) : (
@@ -667,6 +662,7 @@ export default function AccountTransactionTable({ accountId, from = "", to = "",
           selected={selected}
           categoryDisplayMap={categoryDisplayMap}
           tags={tags}
+          currency={accountCurrency}
           cbRef={cbRef}
         />
       )}
