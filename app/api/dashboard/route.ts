@@ -156,8 +156,41 @@ export function GET(request: NextRequest) {
     const prevP: (string | number)[] = prevFrom ? [prevFrom, prevTo] : [];
     const prev  = sumPeriod(db, incCats, expCats, savCats, `${prevC} ${acctTransC}`, [...prevP, ...acctP]);
 
-    // ── 12-month chart (grouped) ──────────────────────────────────────────
-    const chartFrom = toIso(new Date(now.getFullYear(), now.getMonth() - 11, 1));
+    // ── Income vs expenses chart (grouped by month, spans the selected range) ──
+    // Determine the first month to display (0-indexed month).
+    let chartStartYear: number, chartStartMonth: number;
+    if (from) {
+      const [fy, fm, fd] = from.split("-").map(Number);
+      if (fd > 1) {
+        // Rolling range that starts mid-month (e.g. "Last 12 months"): begin at the
+        // next full month so the bar count matches the label (12 months → 12 bars).
+        const d = new Date(fy, fm, 1); // fm is 1-indexed, so this is the next month
+        chartStartYear = d.getFullYear(); chartStartMonth = d.getMonth();
+      } else {
+        chartStartYear = fy; chartStartMonth = fm - 1;
+      }
+    } else {
+      // All time: start at the earliest transaction's month.
+      const earliest = db.prepare(`
+        SELECT MIN(t.date) AS d FROM transactions t
+        WHERE t.linked_transaction_id IS NULL ${acctTransC}
+      `).get(...acctP) as { d: string | null };
+      if (earliest.d) {
+        const [ey, em] = earliest.d.split("-").map(Number);
+        chartStartYear = ey; chartStartMonth = em - 1;
+      } else {
+        chartStartYear = now.getFullYear(); chartStartMonth = now.getMonth() - 11;
+      }
+    }
+
+    const [chartEndYear, chartEndMonthNum] = to.split("-").map(Number);
+    const chartEndMonth = chartEndMonthNum - 1;
+    const monthCount = Math.max(
+      1,
+      (chartEndYear - chartStartYear) * 12 + (chartEndMonth - chartStartMonth) + 1
+    );
+
+    const chartFrom = `${chartStartYear}-${String(chartStartMonth + 1).padStart(2, "0")}-01`;
     const inc = catSumExpr(incCats, "income");
     const exp = catSumExpr(expCats, "expenses", true);
     const chartRows = db.prepare(`
@@ -166,13 +199,13 @@ export function GET(request: NextRequest) {
       LEFT JOIN accounts a ON a.id = t.account_id
       WHERE t.linked_transaction_id IS NULL AND t.date >= ? AND t.date <= ? ${acctTransC}
       GROUP BY ym ORDER BY ym
-    `).all(...inc.params, ...exp.params, chartFrom, today, ...acctP) as {
+    `).all(...inc.params, ...exp.params, chartFrom, to, ...acctP) as {
       ym: string; income: number; expenses: number;
     }[];
 
     const chartMap = new Map(chartRows.map((r) => [r.ym, r]));
-    const chart = Array.from({ length: 12 }, (_, i) => {
-      const d     = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
+    const chart = Array.from({ length: monthCount }, (_, i) => {
+      const d     = new Date(chartStartYear, chartStartMonth + i, 1);
       const ym    = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = d.toLocaleString("en-US", { month: "short", year: "2-digit" });
       const row   = chartMap.get(ym);
