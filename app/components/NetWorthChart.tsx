@@ -11,6 +11,7 @@ type Props = {
   tickLabels?: string[];    // label for each tick
   height?: number;
   color?: string;
+  currency?: string;
 };
 
 export default function NetWorthChart({
@@ -21,6 +22,7 @@ export default function NetWorthChart({
   tickLabels,
   height = 130,
   color = "var(--brand)",
+  currency = "CHF",
 }: Props) {
   const [hoveredMi, setHoveredMi] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -125,7 +127,7 @@ export default function NetWorthChart({
           <g key={i}>
             <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="var(--hair)" strokeDasharray={isZero ? "" : "2 4"} />
             <text x={padL - 8} y={y + 3.5} fontSize="10" fill="var(--ink-3)" textAnchor="end" fontFamily="'JetBrains Mono', monospace">
-              {formatCurrency(v, "CHF", 0)}
+              {formatCurrency(v, currency, 0)}
             </text>
           </g>
         );
@@ -173,7 +175,7 @@ export default function NetWorthChart({
             {tooltipLabel}
           </text>
           <text x={tx + 12} y={ty + 35} fontSize="14" fill="var(--ink)" fontFamily="'JetBrains Mono', monospace" fontWeight="600">
-            {formatCurrency(tooltipValue, "CHF", 0)}
+            {formatCurrency(tooltipValue, currency, 0)}
           </text>
           {tooltipDelta !== null && (() => {
             const prevValue = tooltipValue - tooltipDelta;
@@ -185,7 +187,7 @@ export default function NetWorthChart({
                 {tooltipDelta >= 0 ? "+" : "−"}
                 {hasMeaningfulBase
                   ? `${Math.abs(pct).toFixed(1)}% vs prev month`
-                  : `${formatCurrency(Math.abs(tooltipDelta), "CHF", 0)} vs prev month`}
+                  : `${formatCurrency(Math.abs(tooltipDelta), currency, 0)} vs prev month`}
               </text>
             );
           })()}

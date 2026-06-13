@@ -250,6 +250,7 @@ export default function AccountDetailPage() {
                   tickLabels={chart.tickLabels}
                   height={120}
                   color={account.color}
+                  currency={account.currency}
                 />
               )}
             </div>
