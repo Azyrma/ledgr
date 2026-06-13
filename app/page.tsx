@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import AccountFilter, { Account } from "./components/AccountFilter";
-import DateFilter from "./components/DateFilter";
+import DateFilter, { DATE_RANGES } from "./components/DateFilter";
 import SummaryCards from "./components/SummaryCards";
 import IncomeExpensesChart, { MonthlyData } from "./components/IncomeExpensesChart";
 import SpendingTrends, { TrendsData } from "./components/SpendingTrends";
@@ -79,7 +79,11 @@ export default function DashboardPage() {
         {/* Row 1: Income vs Expenses + Trends */}
         <div className="flex items-stretch gap-4">
           <div className="flex-1 min-w-0">
-            <IncomeExpensesChart data={data?.chart ?? []} stretch />
+            <IncomeExpensesChart
+              data={data?.chart ?? []}
+              stretch
+              subtitle={DATE_RANGES.find((r) => r.value === dateRange)?.label ?? "Trailing 12 months"}
+            />
           </div>
           <div className="w-72 shrink-0">
             <SpendingTrends data={data?.trends ?? {

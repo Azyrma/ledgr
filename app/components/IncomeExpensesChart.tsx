@@ -21,6 +21,7 @@ type Props = {
   data: MonthlyData[];
   chartHeight?: number;
   stretch?: boolean;
+  subtitle?: string;
 };
 
 function LegendDot({ color, label }: { color: string; label: string }) {
@@ -32,7 +33,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   );
 }
 
-export default function IncomeExpensesChart({ data, chartHeight = 240, stretch = false }: Props) {
+export default function IncomeExpensesChart({ data, chartHeight = 240, stretch = false, subtitle = "Trailing 12 months" }: Props) {
   return (
     <div className={`v2-card flex flex-col ${stretch ? "h-full" : ""}`}>
       <div style={{ padding: "22px 24px 16px", display: "flex", flexDirection: "column", flex: stretch ? 1 : undefined }}>
@@ -42,7 +43,7 @@ export default function IncomeExpensesChart({ data, chartHeight = 240, stretch =
             <div className="display-serif" style={{ fontSize: 17 }}>
               Income <em className="display-italic" style={{ color: "var(--brand)" }}>vs</em> expenses
             </div>
-            <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>Trailing 12 months</div>
+            <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>{subtitle}</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <LegendDot color="var(--brand)" label="Income" />
