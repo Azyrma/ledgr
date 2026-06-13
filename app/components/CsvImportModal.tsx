@@ -28,6 +28,27 @@ function formatDate(iso: string) {
   return `${d}.${m}.${y}`;
 }
 
+// Pick the account the detected bank most likely belongs to. Returns "" when the
+// guess is ambiguous (multiple matches) or there's no sensible match, so the user
+// is left to choose.
+function guessAccountId(bank: BankType, accounts: Account[]): number | "" {
+  const match = (keyword: string, type?: string) =>
+    accounts.filter(
+      (a) => a.name.toLowerCase().includes(keyword) && (!type || a.type === type)
+    );
+
+  let candidates: Account[] = [];
+  switch (bank) {
+    case "postfinance":    candidates = match("postfinance", "checking");    break;
+    case "postfinance-cc": candidates = match("postfinance", "credit_card"); break;
+    case "handelsbanken":  candidates = match("handelsbanken", "checking");  break;
+    case "avanza":         candidates = match("avanza");                     break;
+    default:               candidates = [];
+  }
+
+  return candidates.length === 1 ? candidates[0].id : "";
+}
+
 export default function CsvImportModal({ onClose, onImported }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [step, setStep]               = useState<Step>("select");
@@ -42,6 +63,14 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
   useEffect(() => {
     fetch("/api/accounts").then((r) => r.json()).then(setAccounts).catch(() => {});
   }, []);
+
+  // Auto-select the matching account once the bank is detected and accounts are
+  // loaded. Only fills an empty selection, so it never overrides a manual choice.
+  useEffect(() => {
+    if (bankType === "unknown" || accountId !== "" || accounts.length === 0) return;
+    const guess = guessAccountId(bankType, accounts);
+    if (guess !== "") setAccountId(guess);
+  }, [bankType, accounts, accountId]);
 
   async function handleFile(f: File) {
     const sniff = f.name.endsWith(".csv") ? await f.slice(0, 200).text() : undefined;
