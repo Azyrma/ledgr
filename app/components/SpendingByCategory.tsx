@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRef, useState } from "react";
 import { formatCurrency } from "@/lib/utils";
 
 export type CategorySpend = {
@@ -26,21 +27,37 @@ function Donut({
   centerLabel,
   centerValue,
 }: {
-  segments: { value: number; color: string }[];
+  segments: { value: number; color: string; label: string }[];
   size?: number;
   thickness?: number;
   centerLabel?: string;
   centerValue?: string;
 }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const wrapRef = useRef<HTMLDivElement>(null);
+
   const r = (size - thickness) / 2;
   const cx = size / 2;
   const cy = size / 2;
   const total = segments.reduce((s, x) => s + x.value, 0);
   const circ = 2 * Math.PI * r;
-  let offset = 0;
+
+  // Precompute arc lengths + cumulative offsets (no render-time mutation).
+  const arcs = segments.reduce<{ len: number; offset: number }[]>((acc, s) => {
+    const len = total > 0 ? (s.value / total) * circ : 0;
+    const offset = acc.length ? acc[acc.length - 1].offset + acc[acc.length - 1].len : 0;
+    acc.push({ len, offset });
+    return acc;
+  }, []);
+
+  function handleMove(e: React.MouseEvent) {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (rect) setPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  }
 
   return (
-    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+    <div ref={wrapRef} style={{ position: "relative", width: size, height: size, flexShrink: 0 }} onMouseMove={handleMove}>
       <svg
         width={size}
         height={size}
@@ -50,9 +67,8 @@ function Donut({
         {/* Track */}
         <circle cx={cx} cy={cy} r={r} stroke="var(--surface-3)" strokeWidth={thickness} fill="none" />
         {segments.map((s, i) => {
-          const len = total > 0 ? (s.value / total) * circ : 0;
+          const { len, offset } = arcs[i];
           const dashOffset = -offset;
-          offset += len;
           return (
             <circle
               key={i}
@@ -64,6 +80,9 @@ function Donut({
               fill="none"
               strokeDasharray={`${len} ${circ - len}`}
               strokeDashoffset={dashOffset}
+              style={{ cursor: "pointer", opacity: hover === null || hover === i ? 1 : 0.35, transition: "opacity .1s" }}
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
             />
           );
         })}
@@ -71,7 +90,7 @@ function Donut({
       {centerValue && (
         <div style={{
           position: "absolute", inset: 0,
-          display: "grid", placeItems: "center", textAlign: "center",
+          display: "grid", placeItems: "center", textAlign: "center", pointerEvents: "none",
         }}>
           <div>
             <div className="muted" style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.05em", textTransform: "uppercase" }}>
@@ -80,6 +99,24 @@ function Donut({
             <div className="num" style={{ fontSize: 16, fontWeight: 600, marginTop: 2 }}>
               {centerValue}
             </div>
+          </div>
+        </div>
+      )}
+      {hover !== null && segments[hover] && (
+        <div style={{
+          position: "absolute", left: pos.x + 14, top: pos.y + 14, zIndex: 20, pointerEvents: "none",
+          background: "var(--surface)", border: "1px solid var(--hair-2)", borderRadius: 8,
+          boxShadow: "0 4px 14px rgba(0,0,0,0.12)", padding: "7px 10px", whiteSpace: "nowrap",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>
+            <span style={{ width: 9, height: 9, borderRadius: 3, background: segments[hover].color, display: "inline-block" }} />
+            {segments[hover].label}
+          </div>
+          <div className="num" style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 2 }}>
+            {formatCurrency(segments[hover].value)}
+            <span className="muted" style={{ marginLeft: 6 }}>
+              {total > 0 ? Math.round((segments[hover].value / total) * 100) : 0}%
+            </span>
           </div>
         </div>
       )}
@@ -109,9 +146,10 @@ export default function SpendingByCategory({ data }: Props) {
   const segments = top6.map((c, i) => ({
     value: c.amount,
     color: c.color ?? COLORS[i % COLORS.length],
+    label: c.name,
   }));
   if (otherAmount > 0) {
-    segments.push({ value: otherAmount, color: "var(--ink-4)" });
+    segments.push({ value: otherAmount, color: "var(--ink-4)", label: "Other" });
   }
 
   const maxAmount = top6[0]?.amount ?? 1;
