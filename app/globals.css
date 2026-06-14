@@ -179,7 +179,12 @@ body {
   text-decoration: none;
 }
 .v2-nav-item:hover { background: var(--surface-2); color: var(--ink); }
-.v2-nav-item.active { background: var(--brand-soft); color: var(--brand); }
+.v2-nav-item.active {
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 0 var(--brand);
+}
 .v2-nav-item.active svg { color: var(--brand) !important; }
 
 .v2-brand-mark {
@@ -230,6 +235,17 @@ body {
 .btn.btn-ghost:hover { background: var(--surface-2) !important; color: var(--ink); }
 .btn.btn-primary { background: var(--brand) !important; color: var(--brand-ink) !important; border-color: var(--brand) !important; }
 .btn.btn-primary:hover { background: var(--brand-2) !important; border-color: var(--brand-2) !important; }
+
+/* Our .btn forces border-radius with !important, which breaks daisyUI's join
+   corner-squaring. Re-square the inner corners of joined (horizontal) buttons. */
+.join > .join-item:not(:last-child) {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+.join > .join-item:not(:first-child) {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
 .btn.btn-outline { background: var(--surface) !important; color: var(--ink) !important; border-color: var(--hair-2) !important; }
 .btn.btn-outline:hover { border-color: var(--ink-4) !important; background: var(--surface) !important; }
 .btn.btn-error, .btn.btn-warning { border: 1px solid transparent; }
