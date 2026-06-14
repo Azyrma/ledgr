@@ -1,51 +1,44 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PageHeader, { SplitTitle } from "@/app/components/PageHeader";
+import TransactionFilters, { DEFAULT_FILTERS, type Filters } from "@/app/components/TransactionFilters";
+import TransactionDateFilter from "@/app/components/TransactionDateFilter";
+import ExportCsvModal from "@/app/components/ExportCsvModal";
+import TransactionListReadOnly from "@/app/components/TransactionListReadOnly";
+import { buildSections, type Section } from "@/app/components/SetCategoryPopover";
+import { buildCategoryDisplayMap, type CategoryDisplay, type FlatCat } from "@/lib/categories";
+import { formatCurrency } from "@/lib/utils";
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-const SPENDING_CATS = [
-  { name: "Housing",        amount: 1850, color: "oklch(0.52 0.12 35)"  },
-  { name: "Food & Dining",  amount: 640,  color: "oklch(0.6 0.13 40)"   },
-  { name: "Transport",      amount: 310,  color: "oklch(0.65 0.1 50)"   },
-  { name: "Shopping",       amount: 290,  color: "oklch(0.62 0.09 270)" },
-  { name: "Health",         amount: 180,  color: "oklch(0.58 0.1 200)"  },
-  { name: "Entertainment",  amount: 140,  color: "oklch(0.58 0.12 310)" },
-  { name: "Subscriptions",  amount: 95,   color: "oklch(0.55 0.08 240)" },
-  { name: "Other",          amount: 210,  color: "var(--ink-4)"         },
-];
+type Transaction = {
+  id: number;
+  date: string;
+  description: string;
+  amount: number;
+  category: string;
+  reimbursable: number;
+  needs_review: number;
+  account_id: number;
+  account_name: string;
+  account_color: string;
+  account_currency: string;
+  exchange_rate: number;
+  linked_transaction_id: number | null;
+};
 
-const INCOME_CATS = [
-  { name: "Salary",         amount: 7200, color: "oklch(0.52 0.09 155)" },
-  { name: "Freelance",      amount: 1400, color: "oklch(0.46 0.1 155)"  },
-  { name: "Dividends",      amount: 320,  color: "oklch(0.55 0.1 200)"  },
-  { name: "Interest",       amount: 90,   color: "oklch(0.58 0.08 170)" },
-  { name: "Other",          amount: 90,   color: "var(--ink-4)"         },
-];
+type AccountRow = { id: number; name: string; color: string | null; currency: string; exchange_rate: number };
+type Tag = { id: number; name: string; color: string | null; icon: string | null; is_system: number };
 
-const SPENDING_TXS = [
-  { id: 1,  date: "Apr 18", description: "Migros",             category: "Food & Dining", categoryColor: "oklch(0.6 0.13 40)",   account: "UBS Checking", amount: -87.40  },
-  { id: 2,  date: "Apr 17", description: "SBB Ticket",         category: "Transport",     categoryColor: "oklch(0.65 0.1 50)",   account: "UBS Checking", amount: -24.00  },
-  { id: 3,  date: "Apr 16", description: "Coop",               category: "Food & Dining", categoryColor: "oklch(0.6 0.13 40)",   account: "UBS Checking", amount: -53.20  },
-  { id: 4,  date: "Apr 15", description: "Netflix",            category: "Subscriptions", categoryColor: "oklch(0.55 0.08 240)", account: "Revolut",      amount: -15.90  },
-  { id: 5,  date: "Apr 14", description: "Galaxus",            category: "Shopping",      categoryColor: "oklch(0.62 0.09 270)", account: "Revolut",      amount: -149.00 },
-  { id: 6,  date: "Apr 13", description: "Arztpraxis Zürich",  category: "Health",        categoryColor: "oklch(0.58 0.1 200)",  account: "UBS Checking", amount: -90.00  },
-  { id: 7,  date: "Apr 12", description: "Rent April",         category: "Housing",       categoryColor: "oklch(0.52 0.12 35)",  account: "UBS Checking", amount: -1850.00},
-  { id: 8,  date: "Apr 11", description: "Spotify",            category: "Subscriptions", categoryColor: "oklch(0.55 0.08 240)", account: "Revolut",      amount: -10.99  },
-  { id: 9,  date: "Apr 10", description: "Kino Abaton",        category: "Entertainment", categoryColor: "oklch(0.58 0.12 310)", account: "Revolut",      amount: -18.00  },
-  { id: 10, date: "Apr 09", description: "Digitec",            category: "Shopping",      categoryColor: "oklch(0.62 0.09 270)", account: "Revolut",      amount: -79.00  },
-  { id: 11, date: "Apr 08", description: "Tankstelle Shell",   category: "Transport",     categoryColor: "oklch(0.65 0.1 50)",   account: "UBS Checking", amount: -68.00  },
-  { id: 12, date: "Apr 07", description: "Restaurant Kronenhalle", category: "Food & Dining", categoryColor: "oklch(0.6 0.13 40)", account: "Revolut",   amount: -42.50  },
-];
+type Breakdown = { key: string; childSeg: string | null; name: string; color: string; amount: number; drillable: boolean };
 
-const INCOME_TXS = [
-  { id: 1,  date: "Apr 25", description: "Salary – April",       category: "Salary",    categoryColor: "oklch(0.52 0.09 155)", account: "UBS Checking", amount: 7200.00 },
-  { id: 2,  date: "Apr 01", description: "Freelance Invoice #12", category: "Freelance", categoryColor: "oklch(0.46 0.1 155)",  account: "UBS Checking", amount: 1400.00 },
-  { id: 3,  date: "Mar 31", description: "Novartis Dividends",    category: "Dividends", categoryColor: "oklch(0.55 0.1 200)",  account: "IBKR",         amount: 320.00  },
-  { id: 4,  date: "Mar 28", description: "UBS Savings Interest",  category: "Interest",  categoryColor: "oklch(0.58 0.08 170)", account: "UBS Savings",  amount: 90.00   },
-  { id: 5,  date: "Mar 25", description: "Salary – March",        category: "Salary",    categoryColor: "oklch(0.52 0.09 155)", account: "UBS Checking", amount: 7200.00 },
-  { id: 6,  date: "Mar 01", description: "Freelance Invoice #11", category: "Freelance", categoryColor: "oklch(0.46 0.1 155)",  account: "UBS Checking", amount: 1400.00 },
+const FALLBACK_COLOR = "var(--ink-4)";
+const PALETTE = [
+  "oklch(0.52 0.12 35)", "oklch(0.6 0.13 40)", "oklch(0.65 0.1 50)",
+  "oklch(0.62 0.09 270)", "oklch(0.58 0.1 200)", "oklch(0.58 0.12 310)",
+  "oklch(0.55 0.08 240)", "oklch(0.52 0.09 155)", "oklch(0.46 0.1 155)",
+  "oklch(0.55 0.1 200)", "oklch(0.58 0.08 170)",
 ];
 
 // ── Donut ─────────────────────────────────────────────────────────────────────
@@ -67,16 +60,22 @@ function Donut({
   const cx = size / 2;
   const cy = size / 2;
   const circ = 2 * Math.PI * r;
-  let offset = 0;
+
+  // Precompute each segment's length and cumulative start offset (no render-time mutation).
+  const arcs = segments.reduce<{ len: number; offset: number }[]>((acc, s) => {
+    const len = total > 0 ? (s.value / total) * circ : 0;
+    const offset = acc.length ? acc[acc.length - 1].offset + acc[acc.length - 1].len : 0;
+    acc.push({ len, offset });
+    return acc;
+  }, []);
 
   return (
     <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }}>
         <circle cx={cx} cy={cy} r={r} stroke="var(--surface-3)" strokeWidth={thickness} fill="none" />
         {segments.map((s, i) => {
-          const len = total > 0 ? (s.value / total) * circ : 0;
+          const { len, offset } = arcs[i];
           const dashOffset = -offset;
-          offset += len;
           return (
             <circle
               key={i}
@@ -94,7 +93,7 @@ function Donut({
         <div>
           <div className="muted" style={{ fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
           <div className="display-serif" style={{ fontSize: 26, fontWeight: 600, lineHeight: 1.15, marginTop: 4 }}>
-            CHF {total.toLocaleString()}
+            CHF {Math.round(total).toLocaleString()}
           </div>
         </div>
       </div>
@@ -118,168 +117,354 @@ function Progress({ value, max, color }: { value: number; max: number; color: st
 export default function ReportsPage() {
   const [tab, setTab] = useState<"spending" | "income">("spending");
 
-  const cats = tab === "spending" ? SPENDING_CATS : INCOME_CATS;
-  const txs  = tab === "spending" ? SPENDING_TXS  : INCOME_TXS;
-  const total = cats.reduce((s, c) => s + c.amount, 0);
-  const maxAmount = Math.max(...cats.map((c) => c.amount));
+  // Drill-down path into the category tree (segments, excluding system roots).
+  const [drill, setDrill] = useState<string[]>([]);
 
-  const segments = cats.map((c) => ({ value: c.amount, color: c.color }));
+  // Filter / date / search state (mirrors the account transaction overview)
+  const [filters, setFilters]         = useState<Filters>(DEFAULT_FILTERS);
+  const [dateFrom, setDateFrom]       = useState("");
+  const [dateTo,   setDateTo]         = useState("");
+  const [localSearch, setLocalSearch] = useState("");
+  const searchTimerRef                = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Data
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [accounts, setAccounts]         = useState<AccountRow[]>([]);
+  const [tags, setTags]                 = useState<Tag[]>([]);
+  const [categoryDisplayMap, setCategoryDisplayMap] = useState<Map<string, CategoryDisplay>>(new Map());
+  const [, setPopoverSections]          = useState<Section[]>([]);
+
+  // Export
+  const [exportTxs, setExportTxs] = useState<Transaction[] | null>(null);
+
+  // ── Static data for filters ──────────────────────────────────────────────
+  useEffect(() => {
+    fetch("/api/accounts").then((r) => r.json()).then((data) => {
+      setAccounts(Array.isArray(data) ? data.map((a: Record<string, unknown>) => ({
+        id: a.id as number, name: a.name as string, color: (a.color as string) ?? null,
+        currency: (a.currency as string) ?? "CHF", exchange_rate: (a.exchange_rate as number) ?? 1.0,
+      })) : []);
+    });
+    fetch("/api/categories").then((r) => r.json()).then((data: FlatCat[]) => {
+      setCategoryDisplayMap(buildCategoryDisplayMap(data));
+      setPopoverSections(buildSections(data));
+    });
+    fetch("/api/tags").then((r) => r.json()).then((data: Tag[]) => {
+      setTags(Array.isArray(data) ? data : []);
+    });
+  }, []);
+
+  // ── Transactions (re-fetched whenever filters / date change) ──────────────
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (filters.search)      params.set("search",      filters.search);
+      if (dateFrom)            params.set("from",         dateFrom);
+      if (dateTo)              params.set("to",           dateTo);
+      if (filters.account)     params.set("accountId",    filters.account);
+      if (filters.category)    params.set("category",     filters.category);
+      if (filters.minAmount)   params.set("minAmount",    filters.minAmount);
+      if (filters.maxAmount)   params.set("maxAmount",    filters.maxAmount);
+      if (filters.needsReview)  params.set("needsReview",  "true");
+      if (filters.reimbursable) params.set("reimbursable", "true");
+      if (filters.transfers)    params.set("transfers",    "true");
+      params.set("sort", "date");
+      params.set("dir", "desc");
+
+      const res = await fetch(`/api/transactions?${params}`);
+      const data = await res.json();
+      if (cancelled) return;
+      setTransactions(Array.isArray(data) ? data : []);
+      setLoading(false);
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [filters, dateFrom, dateTo]);
+
+  function handleSearchInput(val: string) {
+    setLocalSearch(val);
+    clearTimeout(searchTimerRef.current ?? undefined);
+    searchTimerRef.current = setTimeout(
+      () => setFilters((f) => ({ ...f, search: val })),
+      300,
+    );
+  }
+
+  const activeFilterCount = [
+    filters.account, filters.category, filters.minAmount, filters.maxAmount,
+    filters.needsReview, filters.reimbursable, filters.transfers,
+  ].filter(Boolean).length;
+
+  // ── Tab-scoped subset (spending = expenses, income = income; transfers excluded) ──
+  const tabTxs = useMemo(() => transactions.filter((t) => {
+    const isTransfer = t.linked_transaction_id !== null || t.category.startsWith("Transfer:");
+    if (isTransfer) return false;
+    return tab === "spending" ? t.amount < 0 : t.amount > 0;
+  }), [transactions, tab]);
+
+  // ── Drill-scoped subset (only categories under the current drill path) ────
+  const drillTxs = useMemo(() => tabTxs.filter((t) => {
+    if (drill.length === 0) return true;
+    const segs = t.category ? t.category.split(": ") : [];
+    if (segs.length < drill.length) return false;
+    for (let i = 0; i < drill.length; i++) if (segs[i] !== drill[i]) return false;
+    return true;
+  }), [tabTxs, drill]);
+
+  // ── Aggregate the current level for the donut + breakdown ─────────────────
+  const { breakdown, total } = useMemo(() => {
+    const depth = drill.length;
+    const groups = new Map<string, Breakdown>();
+    let palette = 0;
+    for (const t of drillTxs) {
+      const segs = t.category ? t.category.split(": ") : [];
+      let key: string, childSeg: string | null, name: string, childPath: string | null, deeper: boolean;
+      if (segs.length === 0) {
+        key = "__uncat__"; childSeg = null; name = "Uncategorised"; childPath = null; deeper = false;
+      } else if (segs.length <= depth) {
+        // Assigned directly to the current node — terminal, not drillable.
+        key = t.category; childSeg = null; name = segs[segs.length - 1]; childPath = t.category; deeper = false;
+      } else {
+        childSeg = segs[depth];
+        childPath = [...drill, childSeg].join(": ");
+        key = childPath; name = childSeg; deeper = segs.length > depth + 1;
+      }
+      const amt = Math.abs(t.amount * t.exchange_rate);
+      const existing = groups.get(key);
+      if (existing) {
+        existing.amount += amt;
+        existing.drillable = existing.drillable || deeper;
+      } else {
+        const display = childPath ? categoryDisplayMap.get(childPath) : undefined;
+        const color = display?.color ?? (key === "__uncat__" ? FALLBACK_COLOR : PALETTE[palette++ % PALETTE.length]);
+        groups.set(key, { key, childSeg, name: display?.leafName ?? name, color, amount: amt, drillable: deeper });
+      }
+    }
+    const rows = [...groups.values()].sort((a, b) => b.amount - a.amount);
+    return { breakdown: rows, total: rows.reduce((s, r) => s + r.amount, 0) };
+  }, [drillTxs, drill, categoryDisplayMap]);
+
+  const maxAmount = breakdown.length ? breakdown[0].amount : 0;
+  const segments = breakdown.map((b) => ({ value: b.amount, color: b.color }));
+  const centerLabel = drill.length
+    ? drill[drill.length - 1]
+    : tab === "spending" ? "Total spent" : "Total earned";
 
   return (
     <div className="flex flex-col h-full">
       <PageHeader
         title={<SplitTitle left="Re" right="ports" />}
         titleExtra={
-          <div style={{ display: "flex", borderRadius: 10, border: "1px solid var(--hair-2)", overflow: "hidden" }}>
+          <div className="join">
             {(["spending", "income"] as const).map((t) => (
               <button
                 key={t}
-                onClick={() => setTab(t)}
-                style={{
-                  padding: "7px 20px", fontSize: 13, cursor: "pointer", border: "none",
-                  background: tab === t ? "var(--brand)" : "var(--surface)",
-                  color: tab === t ? "var(--brand-ink)" : "var(--ink-2)",
-                  fontWeight: tab === t ? 600 : 400,
-                  textTransform: "capitalize",
-                  transition: "background 0.15s, color 0.15s",
-                }}
+                onClick={() => { setTab(t); setDrill([]); }}
+                className={`btn btn-sm join-item capitalize ${tab === t ? "btn-primary" : "btn-outline"}`}
+                style={{ minWidth: 110, fontSize: 14 }}
               >
-                {t}
+                {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
             ))}
           </div>
         }
         actions={
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <select className="btn btn-sm" style={{ fontSize: 13, cursor: "pointer" }}>
-              <option>This month</option>
-              <option>Last month</option>
-              <option>Last 3 months</option>
-              <option>Last 6 months</option>
-              <option>Year to date</option>
-            </select>
-            <button className="btn btn-sm" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <>
+            {(activeFilterCount > 0 || localSearch) && (
+              <button
+                onClick={() => { setFilters(DEFAULT_FILTERS); handleSearchInput(""); }}
+                className="btn btn-sm btn-ghost"
+                style={{ color: "var(--ink-3)", whiteSpace: "nowrap" }}
+              >
+                Clear all
+              </button>
+            )}
+            <div style={{ position: "relative", display: "flex", alignItems: "center", width: 220 }}>
+              <svg xmlns="http://www.w3.org/2000/svg" style={{ position: "absolute", left: 10, pointerEvents: "none", color: "var(--ink-4)" }} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search…"
+                value={localSearch}
+                onChange={(e) => handleSearchInput(e.target.value)}
+                style={{
+                  width: "100%", height: 40,
+                  paddingLeft: 32, paddingRight: localSearch ? 28 : 10,
+                  fontSize: 13, borderRadius: 5,
+                  border: "1px solid var(--hair-2)",
+                  background: "var(--surface)", color: "var(--ink)",
+                  outline: "none",
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "var(--brand)")}
+                onBlur={(e)  => (e.currentTarget.style.borderColor = "var(--hair-2)")}
+              />
+              {localSearch && (
+                <button
+                  onClick={() => handleSearchInput("")}
+                  style={{ position: "absolute", right: 6, background: "none", border: "none", cursor: "pointer", color: "var(--ink-4)", padding: 2, display: "flex" }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            <TransactionFilters
+              filters={filters}
+              accounts={accounts}
+              categoryDisplayMap={categoryDisplayMap}
+              tags={tags}
+              onChange={setFilters}
+              activeFilterCount={activeFilterCount}
+            />
+            <TransactionDateFilter
+              from={dateFrom}
+              to={dateTo}
+              onChange={(f, t) => { setDateFrom(f); setDateTo(t); }}
+            />
+            <button
+              onClick={() => setExportTxs(drillTxs)}
+              className="btn btn-sm"
+              style={{ display: "flex", alignItems: "center", gap: 6 }}
+            >
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              Export CSV
+              Download Transactions
             </button>
-          </div>
+          </>
         }
       />
 
-      <div className="flex-1 px-9 pb-12 pt-2 space-y-4 overflow-y-auto">
-        {/* Donut + category breakdown */}
-        <div className="v2-card v2-card-pad">
-          <div style={{ display: "flex", gap: 48, alignItems: "center" }}>
-            {/* Large donut */}
-            <Donut
-              segments={segments}
-              total={total}
-              label={tab === "spending" ? "Total spent" : "Total earned"}
-              size={260}
-              thickness={28}
-            />
-
-            {/* Category list */}
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-              {cats.map((c) => {
-                const pct = Math.round((c.amount / total) * 100);
-                return (
-                  <div key={c.name} style={{ display: "flex", alignItems: "center", gap: 14, padding: "7px 0", borderBottom: "1px solid var(--hair)" }}>
-                    {/* Icon square */}
-                    <div style={{
-                      width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-                      background: `${c.color}1c`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      <div style={{ width: 11, height: 11, borderRadius: 3, background: c.color }} />
-                    </div>
-
-                    {/* Name + bar */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
-                        <span style={{ fontSize: 13.5, fontWeight: 500 }}>{c.name}</span>
-                        <span className="muted" style={{ fontSize: 12, marginLeft: 8, flexShrink: 0 }}>{pct}%</span>
-                      </div>
-                      <Progress value={c.amount} max={maxAmount} color={c.color} />
-                    </div>
-
-                    {/* Amount */}
-                    <div className="num" style={{ fontSize: 14, fontWeight: 600, minWidth: 100, textAlign: "right", flexShrink: 0 }}>
-                      CHF {c.amount.toLocaleString()}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+      <div className="flex flex-1 min-h-0 flex-col gap-4 px-9 pb-6 pt-2">
+        {loading ? (
+          <div className="flex items-center justify-center py-24">
+            <span className="loading loading-spinner loading-lg" />
           </div>
-        </div>
-
-        {/* Transactions table */}
-        <div className="v2-card v2-card-pad">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <div className="display-serif" style={{ fontSize: 17 }}>
-              {tab === "spending" ? "Expense" : "Income"}{" "}
-              <em className="display-italic" style={{ color: "var(--brand)" }}>transactions</em>
-            </div>
-            <span className="chip" style={{ fontSize: 12 }}>{txs.length} transactions</span>
-          </div>
-
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                {["Date", "Description", "Category", "Account", "Amount"].map((h, i) => (
-                  <th key={h} style={{
-                    textAlign: i === 4 ? "right" : "left",
-                    fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em",
-                    color: "var(--ink-3)", fontWeight: 500,
-                    paddingBottom: 10, borderBottom: "1px solid var(--hair)",
-                    paddingRight: i < 4 ? 16 : 0,
-                  }}>
-                    {h}
-                  </th>
+        ) : (
+          <>
+            {/* Donut + category breakdown */}
+            <div className="v2-card v2-card-pad">
+              {/* Breadcrumb */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+                <BreadcrumbItem label={tab === "spending" ? "All spending" : "All income"} active={drill.length === 0} onClick={() => setDrill([])} />
+                {drill.map((seg, i) => (
+                  <span key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ color: "var(--ink-4)" }}>/</span>
+                    <BreadcrumbItem label={seg} active={i === drill.length - 1} onClick={() => setDrill(drill.slice(0, i + 1))} />
+                  </span>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {txs.map((t, i) => (
-                <tr key={t.id} style={{ borderBottom: i < txs.length - 1 ? "1px solid var(--hair)" : "none" }}>
-                  <td className="muted" style={{ fontSize: 12.5, padding: "10px 16px 10px 0", whiteSpace: "nowrap" }}>
-                    {t.date}
-                  </td>
-                  <td style={{ fontSize: 13.5, fontWeight: 500, padding: "10px 16px 10px 0" }}>
-                    {t.description}
-                  </td>
-                  <td style={{ padding: "10px 16px 10px 0" }}>
-                    <span style={{
-                      display: "inline-flex", alignItems: "center", gap: 5,
-                      fontSize: 12, padding: "3px 8px", borderRadius: 6,
-                      background: `${t.categoryColor}18`,
-                      color: t.categoryColor,
-                      fontWeight: 500,
-                    }}>
-                      <span style={{ width: 6, height: 6, borderRadius: 2, background: t.categoryColor, display: "inline-block" }} />
-                      {t.category}
-                    </span>
-                  </td>
-                  <td className="muted" style={{ fontSize: 12.5, padding: "10px 16px 10px 0" }}>
-                    {t.account}
-                  </td>
-                  <td className="num" style={{
-                    textAlign: "right", fontSize: 13.5, fontWeight: 600, padding: "10px 0",
-                    color: t.amount < 0 ? "var(--neg)" : "var(--pos)",
-                  }}>
-                    {t.amount < 0 ? "−" : "+"}CHF {Math.abs(t.amount).toFixed(2)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </div>
+
+              {breakdown.length === 0 ? (
+                <div className="muted" style={{ textAlign: "center", padding: "48px 0", fontSize: 14 }}>
+                  No {tab === "spending" ? "expenses" : "income"} for the selected filters.
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: 48, alignItems: "center" }}>
+                  {/* Large donut */}
+                  <Donut segments={segments} total={total} label={centerLabel} size={260} thickness={28} />
+
+                  {/* Category list */}
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
+                    {breakdown.map((c) => {
+                      const pct = total > 0 ? Math.round((c.amount / total) * 100) : 0;
+                      return (
+                        <div
+                          key={c.key}
+                          onClick={c.drillable && c.childSeg ? () => setDrill([...drill, c.childSeg!]) : undefined}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 14, padding: "7px 8px",
+                            borderBottom: "1px solid var(--hair)", borderRadius: 6,
+                            cursor: c.drillable ? "pointer" : "default",
+                            transition: "background 0.1s",
+                          }}
+                          onMouseEnter={(e) => { if (c.drillable) e.currentTarget.style.background = "var(--surface-2)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                        >
+                          {/* Icon square */}
+                          <div style={{
+                            width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+                            background: `${c.color}1c`,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                          }}>
+                            <div style={{ width: 11, height: 11, borderRadius: 3, background: c.color }} />
+                          </div>
+
+                          {/* Name + bar */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 5 }}>
+                              <span style={{ fontSize: 13.5, fontWeight: 500 }}>{c.name}</span>
+                              <span className="muted" style={{ fontSize: 12, marginLeft: 8, flexShrink: 0 }}>{pct}%</span>
+                            </div>
+                            <Progress value={c.amount} max={maxAmount} color={c.color} />
+                          </div>
+
+                          {/* Amount */}
+                          <div className="num" style={{ fontSize: 14, fontWeight: 600, minWidth: 100, textAlign: "right", flexShrink: 0 }}>
+                            {formatCurrency(c.amount)}
+                          </div>
+
+                          {/* Drill chevron */}
+                          <div style={{ width: 16, flexShrink: 0, color: "var(--ink-4)", display: "flex", justifyContent: "center" }}>
+                            {c.drillable && (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="9 18 15 12 9 6" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Transactions list — same layout as the transactions overview */}
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div className="display-serif" style={{ fontSize: 17, color: "var(--ink)" }}>
+                  {tab === "spending" ? "Expense" : "Income"}{" "}
+                  <span style={{ color: "var(--ink)" }}>transactions</span>
+                  {drill.length > 0 && <span className="muted" style={{ fontSize: 13 }}> · {drill.join(": ")}</span>}
+                </div>
+                <span className="chip" style={{ fontSize: 12 }}>{drillTxs.length} transactions</span>
+              </div>
+              <TransactionListReadOnly transactions={drillTxs} categoryDisplayMap={categoryDisplayMap} tags={tags} />
+            </div>
+          </>
+        )}
       </div>
+
+      {exportTxs && (
+        <ExportCsvModal transactions={exportTxs} onClose={() => setExportTxs(null)} />
+      )}
     </div>
+  );
+}
+
+// ── Breadcrumb item ───────────────────────────────────────────────────────────
+
+function BreadcrumbItem({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={active}
+      style={{
+        fontSize: 13, fontWeight: active ? 600 : 500,
+        color: active ? "var(--ink)" : "var(--brand)",
+        background: "none", border: "none", padding: 0,
+        cursor: active ? "default" : "pointer",
+      }}
+    >
+      {label}
+    </button>
   );
 }
