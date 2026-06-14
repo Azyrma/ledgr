@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import CategoryModal, { CategoryIcon, CATEGORY_ICON_MAP } from "../components/CategoryModal";
 import GroupModal from "../components/GroupModal";
 import PageHeader, { SplitTitle } from "../components/PageHeader";
@@ -30,6 +30,52 @@ type DeleteTarget = { id: number; name: string } | null;
 type Tag = { id: number; name: string; color: string | null; icon: string | null; is_system: number };
 
 const DEFAULT_COLOR = "#A89080";
+
+const SECTION_CARD: CSSProperties = {
+  borderRadius: 14,
+  background: "var(--surface)",
+  border: "1px solid var(--hair)",
+  padding: "18px 20px",
+  marginBottom: 16,
+};
+
+// ── Action icons ──────────────────────────────────────────────────────────────
+
+function EditIcon({ size = 13 }: { size?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+function TrashIcon({ size = 13 }: { size?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <line x1="10" y1="11" x2="10" y2="17" />
+      <line x1="14" y1="11" x2="14" y2="17" />
+    </svg>
+  );
+}
+
+function EditButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="btn btn-ghost btn-xs" style={{ padding: "4px 6px" }} title="Edit" aria-label="Edit">
+      <EditIcon />
+    </button>
+  );
+}
+
+function DeleteButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="btn btn-ghost btn-xs" style={{ padding: "4px 6px", color: "var(--neg)" }} title="Delete" aria-label="Delete">
+      <TrashIcon />
+    </button>
+  );
+}
 
 // ── Category tree builder ─────────────────────────────────────────────────────
 
@@ -64,12 +110,12 @@ function SubcategoryRow({
       }}
     >
       <span style={{ position: "absolute", left: -1, top: 0, width: 12, height: "50%", borderBottom: "1px solid var(--hair)", borderLeft: "1px solid var(--hair)", borderBottomLeftRadius: 4 }} />
-      <CategoryIcon color={color} iconId={category.icon ?? parentIcon ?? null} size={15} />
-      <span style={{ fontSize: 13, flex: 1, color: "var(--ink-2)" }}>{category.name}</span>
+      <CategoryIcon color={color} iconId={category.icon ?? parentIcon ?? null} size={18} />
+      <span style={{ fontSize: 15, flex: 1, color: "var(--ink-2)" }}>{category.name}</span>
       <div className="cat-actions" style={{ display: "flex", gap: 2, opacity: 0, transition: "opacity 0.1s" }}>
-        <button onClick={() => onEdit(category)} className="btn btn-ghost btn-xs" style={{ fontSize: 11 }}>Edit</button>
+        <EditButton onClick={() => onEdit(category)} />
         {!category.is_system && (
-          <button onClick={() => onDelete(category.id, category.name)} className="btn btn-ghost btn-xs" style={{ fontSize: 11, color: "var(--neg)" }}>Delete</button>
+          <DeleteButton onClick={() => onDelete(category.id, category.name)} />
         )}
       </div>
     </div>
@@ -92,12 +138,12 @@ function GroupRow({
         className="cat-row"
         style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8, marginBottom: 2 }}
       >
-        {Icon ? <Icon size={15} color={color} strokeWidth={2} /> : <span style={{ width: 10, height: 10, borderRadius: "50%", background: color, display: "inline-block" }} />}
-        <span style={{ fontSize: 13, fontWeight: 600, flex: 1, color: "var(--ink)" }}>{category.name}</span>
+        {Icon ? <Icon size={18} color={color} strokeWidth={2} /> : <span style={{ width: 12, height: 12, borderRadius: "50%", background: color, display: "inline-block" }} />}
+        <span style={{ fontSize: 16, fontWeight: 600, flex: 1, color: "var(--ink)" }}>{category.name}</span>
         <div className="cat-actions" style={{ display: "flex", gap: 2, opacity: 0, transition: "opacity 0.1s" }}>
-          <button onClick={onEdit} className="btn btn-ghost btn-xs" style={{ fontSize: 11 }}>Edit</button>
+          <EditButton onClick={onEdit} />
           {!category.is_system && (
-            <button onClick={() => onDelete(category.id, category.name)} className="btn btn-ghost btn-xs" style={{ fontSize: 11, color: "var(--neg)" }}>Delete</button>
+            <DeleteButton onClick={() => onDelete(category.id, category.name)} />
           )}
         </div>
       </div>
@@ -128,8 +174,8 @@ type Handlers = {
 
 function Section({ label, groups, onCreateGroup, handlers }: { label: string; groups: Category[]; onCreateGroup: () => void; handlers: Handlers }) {
   return (
-    <div style={{ marginBottom: 28 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: 8 }}>{label}</div>
+    <div style={SECTION_CARD}>
+      <div style={{ fontSize: 19, fontWeight: 700, color: "var(--ink)", marginBottom: 12 }}>{label}</div>
       {groups.map((g) => (
         <GroupRow
           key={g.id} category={g}
@@ -153,11 +199,11 @@ function ExpensesSection({ needsGroup, wantsGroup, onCreateGroupNeeds, onCreateG
   handlers: Handlers;
 }) {
   return (
-    <div style={{ marginBottom: 28 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: 8 }}>Expenses</div>
+    <div style={SECTION_CARD}>
+      <div style={{ fontSize: 19, fontWeight: 700, color: "var(--ink)", marginBottom: 12 }}>Expenses</div>
       {needsGroup && (
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-3)", marginBottom: 4, paddingLeft: 4 }}>Needs</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "var(--ink-2)", marginBottom: 6, paddingLeft: 4 }}>Needs</div>
           {needsGroup.children.map((g) => (
             <GroupRow key={g.id} category={g}
               onEdit={() => handlers.onEditGroup(g, needsGroup.id, "Needs")}
@@ -174,7 +220,7 @@ function ExpensesSection({ needsGroup, wantsGroup, onCreateGroupNeeds, onCreateG
       )}
       {wantsGroup && (
         <div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "var(--ink-3)", marginBottom: 4, paddingLeft: 4 }}>Wants</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "var(--ink-2)", marginBottom: 6, paddingLeft: 4 }}>Wants</div>
           {wantsGroup.children.map((g) => (
             <GroupRow key={g.id} category={g}
               onEdit={() => handlers.onEditGroup(g, wantsGroup.id, "Wants")}
@@ -234,15 +280,15 @@ function TagRow({ tag, onSave, onDelete }: {
             ? <DisplayIcon size={11} color={displayColor} strokeWidth={2} />
             : <span style={{ width: 8, height: 8, borderRadius: "50%", background: displayColor }} />
           }
-          <span style={{ fontSize: 12, fontWeight: 500, color: displayColor }}>{tag.name}</span>
+          <span style={{ fontSize: 14, fontWeight: 500, color: displayColor }}>{tag.name}</span>
         </div>
 
         <span style={{ flex: 1 }} />
 
         <div className="cat-actions" style={{ display: "flex", gap: 2, opacity: 0, transition: "opacity 0.1s" }}>
-          <button onClick={() => { setColor(tag.color ?? DEFAULT_COLOR); setIcon(tag.icon); setEditing(true); }} className="btn btn-ghost btn-xs" style={{ fontSize: 11 }}>Edit</button>
+          <EditButton onClick={() => { setColor(tag.color ?? DEFAULT_COLOR); setIcon(tag.icon); setEditing(true); }} />
           {!tag.is_system && (
-            <button onClick={() => onDelete(tag.id, tag.name)} className="btn btn-ghost btn-xs" style={{ fontSize: 11, color: "var(--neg)" }}>Delete</button>
+            <DeleteButton onClick={() => onDelete(tag.id, tag.name)} />
           )}
         </div>
       </div>
@@ -476,9 +522,9 @@ export default function CategoriesPage() {
             <span className="loading loading-spinner loading-lg" />
           </div>
         ) : (
-          <div style={{ display: "flex", gap: 0, alignItems: "flex-start" }}>
+          <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
             {/* Left: Categories */}
-            <div style={{ flex: "0 0 auto", width: "min(600px, 55%)" }}>
+            <div style={{ flex: "1 1 0", minWidth: 0, maxWidth: "50%" }}>
               {income && (
                 <Section label="Income" groups={income.children}
                   onCreateGroup={() => setGroupModal({ parentId: income.id, parentName: "Income" })}
@@ -496,12 +542,9 @@ export default function CategoriesPage() {
               )}
             </div>
 
-            {/* Divider */}
-            <div style={{ width: 1, alignSelf: "stretch", background: "var(--hair)", margin: "0 40px", flexShrink: 0 }} />
-
             {/* Right: Tags */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-4)", marginBottom: 12 }}>Tags</div>
+            <div style={{ ...SECTION_CARD, flex: "1 1 0", minWidth: 0, marginBottom: 0 }}>
+              <div style={{ fontSize: 19, fontWeight: 700, color: "var(--ink)", marginBottom: 12 }}>Tags</div>
               {tags.filter((tag) => tag.id !== 3).map((tag) => (
                 <TagRow key={tag.id} tag={tag} onSave={handleSaveTag} onDelete={(id, name) => setDeleteTagTarget({ id, name })} />
               ))}
