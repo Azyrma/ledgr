@@ -686,7 +686,10 @@ export default function TransactionsPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    }).catch(() => refresh());
+    })
+      .then((r) => r.json())
+      .then((res) => { if (res?.transferCreated) refresh(); })
+      .catch(() => refresh());
   }
 
   function handleEditKeyDown(e: React.KeyboardEvent) {
