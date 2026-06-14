@@ -7,7 +7,7 @@ import TransactionDateFilter from "@/app/components/TransactionDateFilter";
 import ExportCsvModal from "@/app/components/ExportCsvModal";
 import TransactionListReadOnly from "@/app/components/TransactionListReadOnly";
 import { buildSections, type Section } from "@/app/components/SetCategoryPopover";
-import { buildCategoryDisplayMap, type CategoryDisplay, type FlatCat } from "@/lib/categories";
+import { buildCategoryDisplayMap, buildCategoryNodeMap, getCategoryPath, type CategoryDisplay, type FlatCat } from "@/lib/categories";
 import { formatCurrency } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -33,6 +33,41 @@ type Tag = { id: number; name: string; color: string | null; icon: string | null
 
 type Breakdown = { key: string; childSeg: string | null; name: string; color: string; amount: number; drillable: boolean };
 
+// Root system category ids: Income=1, Expenses=2 (Needs/Wants), Savings=5.
+const INCOME_ROOT = 1;
+const EXPENSE_ROOT = 2;
+const SAVINGS_ROOT = 5;
+
+// Maps each category path to the id of its top-level (root) system category,
+// so we can split transactions into income vs spending by hierarchy, not sign.
+function buildCategoryRootMap(cats: FlatCat[]): Map<string, number> {
+  const nodeMap = buildCategoryNodeMap(cats);
+  const rootOf = (id: number): number => {
+    let cur = nodeMap.get(id);
+    while (cur && cur.parent_id !== null) cur = nodeMap.get(cur.parent_id);
+    return cur ? cur.id : id;
+  };
+  const result = new Map<string, number>();
+  nodeMap.forEach((cat, id) => {
+    if (!cat.is_system) result.set(getCategoryPath(id, nodeMap), rootOf(id));
+  });
+  return result;
+}
+
+// Resolve a (possibly orphaned) category path to its root system id by walking
+// up the path: try the full path, then drop the last segment, etc. This handles
+// transactions whose leaf category no longer exists but whose ancestors do
+// (e.g. "Needs: Education: VIS Expenses" → "Needs: Education" → Expenses root).
+function resolveRoot(path: string, rootMap: Map<string, number>): number | undefined {
+  if (!path) return undefined;
+  const segs = path.split(": ");
+  for (let n = segs.length; n >= 1; n--) {
+    const r = rootMap.get(segs.slice(0, n).join(": "));
+    if (r !== undefined) return r;
+  }
+  return undefined;
+}
+
 const FALLBACK_COLOR = "var(--ink-4)";
 const PALETTE = [
   "oklch(0.52 0.12 35)", "oklch(0.6 0.13 40)", "oklch(0.65 0.1 50)",
@@ -50,12 +85,16 @@ function Donut({
   size = 260,
   thickness = 28,
 }: {
-  segments: { value: number; color: string }[];
+  segments: { value: number; color: string; label: string }[];
   total: number;
   label: string;
   size?: number;
   thickness?: number;
 }) {
+  const [hover, setHover] = useState<number | null>(null);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const wrapRef = useRef<HTMLDivElement>(null);
+
   const r = (size - thickness) / 2;
   const cx = size / 2;
   const cy = size / 2;
@@ -69,8 +108,13 @@ function Donut({
     return acc;
   }, []);
 
+  function handleMove(e: React.MouseEvent) {
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (rect) setPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  }
+
   return (
-    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+    <div ref={wrapRef} style={{ position: "relative", width: size, height: size, flexShrink: 0 }} onMouseMove={handleMove}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }}>
         <circle cx={cx} cy={cy} r={r} stroke="var(--surface-3)" strokeWidth={thickness} fill="none" />
         {segments.map((s, i) => {
@@ -85,11 +129,14 @@ function Donut({
               fill="none"
               strokeDasharray={`${len} ${circ - len}`}
               strokeDashoffset={dashOffset}
+              style={{ cursor: "pointer", opacity: hover === null || hover === i ? 1 : 0.35, transition: "opacity .1s" }}
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
             />
           );
         })}
       </svg>
-      <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", textAlign: "center" }}>
+      <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", textAlign: "center", pointerEvents: "none" }}>
         <div>
           <div className="muted" style={{ fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
           <div className="display-serif" style={{ fontSize: 26, fontWeight: 600, lineHeight: 1.15, marginTop: 4 }}>
@@ -97,6 +144,24 @@ function Donut({
           </div>
         </div>
       </div>
+      {hover !== null && segments[hover] && (
+        <div style={{
+          position: "absolute", left: pos.x + 14, top: pos.y + 14, zIndex: 20, pointerEvents: "none",
+          background: "var(--surface)", border: "1px solid var(--hair-2)", borderRadius: 8,
+          boxShadow: "0 4px 14px rgba(0,0,0,0.12)", padding: "7px 10px", whiteSpace: "nowrap",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 600, color: "var(--ink)" }}>
+            <span style={{ width: 9, height: 9, borderRadius: 3, background: segments[hover].color, display: "inline-block" }} />
+            {segments[hover].label}
+          </div>
+          <div className="num" style={{ fontSize: 12.5, color: "var(--ink-2)", marginTop: 2 }}>
+            {formatCurrency(segments[hover].value)}
+            <span className="muted" style={{ marginLeft: 6 }}>
+              {total > 0 ? Math.round((segments[hover].value / total) * 100) : 0}%
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -133,6 +198,7 @@ export default function ReportsPage() {
   const [accounts, setAccounts]         = useState<AccountRow[]>([]);
   const [tags, setTags]                 = useState<Tag[]>([]);
   const [categoryDisplayMap, setCategoryDisplayMap] = useState<Map<string, CategoryDisplay>>(new Map());
+  const [categoryRootMap, setCategoryRootMap]       = useState<Map<string, number>>(new Map());
   const [, setPopoverSections]          = useState<Section[]>([]);
 
   // Export
@@ -148,6 +214,7 @@ export default function ReportsPage() {
     });
     fetch("/api/categories").then((r) => r.json()).then((data: FlatCat[]) => {
       setCategoryDisplayMap(buildCategoryDisplayMap(data));
+      setCategoryRootMap(buildCategoryRootMap(data));
       setPopoverSections(buildSections(data));
     });
     fetch("/api/tags").then((r) => r.json()).then((data: Tag[]) => {
@@ -198,12 +265,19 @@ export default function ReportsPage() {
     filters.needsReview, filters.reimbursable, filters.transfers,
   ].filter(Boolean).length;
 
-  // ── Tab-scoped subset (spending = expenses, income = income; transfers excluded) ──
+  // ── Tab-scoped subset ─────────────────────────────────────────────────────
+  // Spending = Expenses (Needs/Wants) + Savings categories; Income = Income
+  // categories — classified by the category's root, not by amount sign.
+  // Uncategorised transactions fall back to sign. Transfers excluded.
   const tabTxs = useMemo(() => transactions.filter((t) => {
     const isTransfer = t.linked_transaction_id !== null || t.category.startsWith("Transfer:");
     if (isTransfer) return false;
+    const root = resolveRoot(t.category, categoryRootMap);
+    if (root !== undefined) {
+      return tab === "spending" ? (root === EXPENSE_ROOT || root === SAVINGS_ROOT) : root === INCOME_ROOT;
+    }
     return tab === "spending" ? t.amount < 0 : t.amount > 0;
-  }), [transactions, tab]);
+  }), [transactions, tab, categoryRootMap]);
 
   // ── Drill-scoped subset (only categories under the current drill path) ────
   const drillTxs = useMemo(() => tabTxs.filter((t) => {
@@ -248,7 +322,7 @@ export default function ReportsPage() {
   }, [drillTxs, drill, categoryDisplayMap]);
 
   const maxAmount = breakdown.length ? breakdown[0].amount : 0;
-  const segments = breakdown.map((b) => ({ value: b.amount, color: b.color }));
+  const segments = breakdown.map((b) => ({ value: b.amount, color: b.color, label: b.name }));
   const centerLabel = drill.length
     ? drill[drill.length - 1]
     : tab === "spending" ? "Total spent" : "Total earned";
@@ -375,17 +449,18 @@ export default function ReportsPage() {
                   <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
                     {breakdown.map((c) => {
                       const pct = total > 0 ? Math.round((c.amount / total) * 100) : 0;
+                      const clickable = !!c.childSeg;
                       return (
                         <div
                           key={c.key}
-                          onClick={c.drillable && c.childSeg ? () => setDrill([...drill, c.childSeg!]) : undefined}
+                          onClick={clickable ? () => setDrill([...drill, c.childSeg!]) : undefined}
                           style={{
                             display: "flex", alignItems: "center", gap: 14, padding: "7px 8px",
                             borderBottom: "1px solid var(--hair)", borderRadius: 6,
-                            cursor: c.drillable ? "pointer" : "default",
+                            cursor: clickable ? "pointer" : "default",
                             transition: "background 0.1s",
                           }}
-                          onMouseEnter={(e) => { if (c.drillable) e.currentTarget.style.background = "var(--surface-2)"; }}
+                          onMouseEnter={(e) => { if (clickable) e.currentTarget.style.background = "var(--surface-2)"; }}
                           onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                         >
                           {/* Icon square */}
