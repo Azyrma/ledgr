@@ -31,7 +31,7 @@ type Tag = { id: number; name: string; color: string | null; icon: string | null
 const DEFAULT_CAT_COLOR = "#A89080";
 const ROW_HEIGHT = 45;
 const SEPARATOR_HEIGHT = 32;
-const GRID = "grid grid-cols-[2fr_1fr_1.5fr_1fr_1fr] items-center px-5";
+const GRID = "grid grid-cols-[4fr_1fr_1fr_1fr_1fr] items-center px-5";
 
 type VirtualItem =
   | { kind: "separator"; date: string; total: number }
@@ -73,7 +73,7 @@ const Row = memo(function Row({ t, categoryDisplayMap, tags }: {
       </div>
 
       {/* Account */}
-      <div className="pr-2">
+      <div className="flex min-w-0 justify-center">
         <div className="flex min-w-0 items-center gap-1.5">
           {t.account_color && (
             <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: t.account_color }} />
@@ -83,7 +83,7 @@ const Row = memo(function Row({ t, categoryDisplayMap, tags }: {
       </div>
 
       {/* Category */}
-      <div className="min-w-0 pr-2">
+      <div className="flex min-w-0 justify-center">
         {t.category ? (() => {
           const display = categoryDisplayMap.get(t.category);
           const leafName = display?.leafName ?? t.category.split(": ").pop() ?? t.category;
@@ -107,7 +107,7 @@ const Row = memo(function Row({ t, categoryDisplayMap, tags }: {
       </div>
 
       {/* Tags */}
-      <div className="flex min-w-0 flex-wrap items-center gap-1 pr-2">
+      <div className="flex min-w-0 flex-wrap items-center justify-center gap-1">
         {(t.linked_transaction_id !== null || t.category?.startsWith("Transfer:")) && (() => {
           const tag = tags.find((tg) => tg.id === 1);
           return <TagPill color={tag?.color ?? "#6B8CAE"} icon={tag?.icon ?? null} label={tag?.name ?? "Transfer"} />;
@@ -177,7 +177,7 @@ const TransactionListReadOnly = memo(function TransactionListReadOnly({
         {COLUMNS.map((label) => (
           <div
             key={label}
-            className={`text-xs font-semibold uppercase tracking-wide text-base-content/50 ${label === "Amount" ? "text-right" : ""}`}
+            className={`text-xs font-semibold uppercase tracking-wide text-base-content/50 ${label === "Amount" ? "text-right" : label === "Account" || label === "Category" || label === "Tags" ? "text-center" : ""}`}
           >
             {label}
           </div>
