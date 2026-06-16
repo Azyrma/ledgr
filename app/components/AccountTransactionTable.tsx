@@ -134,7 +134,7 @@ const TransactionRow = memo(function TransactionRow({
         height: ROW_HEIGHT,
         boxShadow: needsReview ? "inset 3px 0 0 0 #E07B4F" : undefined,
       }}
-      className={`grid grid-cols-[2.5rem_2fr_1.5fr_1fr_1fr_1fr] items-center overflow-hidden px-5 transition-colors ${
+      className={`grid grid-cols-[2.5rem_4fr_1fr_1fr_1fr_1fr] items-center overflow-hidden px-5 transition-colors ${
         isSelected ? "bg-base-200" : "hover:bg-base-200"
       }`}
     >
@@ -179,7 +179,7 @@ const TransactionRow = memo(function TransactionRow({
       </div>
 
       {/* Category */}
-      <div className="relative min-w-0 pr-2">
+      <div className="relative flex min-w-0 justify-center">
         {t.needs_review && t.category ? (
           <div
             onClick={(e) => cbRef.current.openCategoryPopover(t.id, t.category, t.needs_review, (e.currentTarget as HTMLElement).getBoundingClientRect())}
@@ -219,7 +219,7 @@ const TransactionRow = memo(function TransactionRow({
       </div>
 
       {/* Tags */}
-      <div className="flex min-w-0 flex-wrap items-center gap-1 pr-2">
+      <div className="flex min-w-0 flex-wrap items-center justify-center gap-1">
         {(t.linked_transaction_id !== null || t.category?.startsWith("Transfer:")) && (() => {
           const tag = tags.find((tg) => tg.id === 1);
           return <TagPill color={tag?.color ?? "#6B8CAE"} icon={tag?.icon ?? null} label={tag?.name ?? "Transfer"} />;
@@ -241,8 +241,8 @@ const TransactionRow = memo(function TransactionRow({
       </div>
 
       {/* Amount */}
-      <div className="flex items-center pr-4">
-        <div className="min-w-0 flex-1">
+      <div className="flex items-center justify-center">
+        <div className="min-w-0">
           {isEditingField("amount") ? (
             <input
               type="number"
@@ -252,12 +252,12 @@ const TransactionRow = memo(function TransactionRow({
               onChange={(e) => cbRef.current.setEditing((prev) => prev ? { ...prev, value: e.target.value } : null)}
               onBlur={() => cbRef.current.commitEdit()}
               onKeyDown={cbRef.current.handleEditKeyDown}
-              className={INPUT_CLS + " text-right"}
+              className={INPUT_CLS + " text-center"}
             />
           ) : (
             <div
               onClick={() => cbRef.current.startEdit(t.id, "amount", String(t.amount))}
-              className="cursor-text text-right hover:underline"
+              className="cursor-text text-center hover:underline"
               title="Click to edit"
             >
               <span className={`block text-sm font-medium tabular-nums ${t.amount >= 0 ? "text-success" : "text-base-content"}`}>
@@ -621,7 +621,7 @@ export default function AccountTransactionTable({ accountId, from = "", to = "",
   return (
     <div className="v2-card flex min-h-0 flex-1 flex-col">
       {/* Table header */}
-      <div className="grid grid-cols-[2.5rem_2fr_1.5fr_1fr_1fr_1fr] items-center border-b border-base-300 px-5 py-3">
+      <div className="grid grid-cols-[2.5rem_4fr_1fr_1fr_1fr_1fr] items-center border-b border-base-300 px-5 py-3">
         <input
           type="checkbox"
           checked={allSelected}
@@ -634,13 +634,13 @@ export default function AccountTransactionTable({ accountId, from = "", to = "",
             <button
               key={col.label}
               onClick={() => handleSort(col.field!)}
-              className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wide transition-colors ${col.field === "amount" ? "justify-end" : ""} ${sort.field === col.field ? "text-base-content" : "text-base-content/50"}`}
+              className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wide transition-colors ${(col.field === "amount" || col.field === "category") ? "justify-center" : ""} ${sort.field === col.field ? "text-base-content" : "text-base-content/50"}`}
             >
               {col.label}
               <span className="text-sm">{sort.field === col.field ? (sort.dir === "asc" ? "↑" : "↓") : ""}</span>
             </button>
           ) : (
-            <div key={col.label} className={`text-xs font-semibold uppercase tracking-wide text-base-content/50 ${col.label === "Balance" ? "text-right" : ""}`}>
+            <div key={col.label} className={`text-xs font-semibold uppercase tracking-wide text-base-content/50 ${col.label === "Balance" ? "text-right" : col.label === "Tags" ? "text-center" : ""}`}>
               {col.label}
             </div>
           )

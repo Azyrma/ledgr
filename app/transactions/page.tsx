@@ -126,7 +126,7 @@ const TransactionRow = memo(function TransactionRow({
         height: ROW_HEIGHT,
         boxShadow: needsReview ? "inset 3px 0 0 0 #E07B4F" : undefined,
       }}
-      className={`grid grid-cols-[2.5rem_2fr_1fr_1.5fr_1fr_1fr] items-center overflow-hidden px-5 transition-colors ${
+      className={`grid grid-cols-[2.5rem_4fr_1fr_1fr_1fr_1fr] items-center overflow-hidden px-5 transition-colors ${
         isSelected ? "bg-base-200" : "hover:bg-base-200"
       }`}
     >
@@ -174,7 +174,7 @@ const TransactionRow = memo(function TransactionRow({
       </div>
 
       {/* Account */}
-      <div className="pr-2">
+      <div className="flex min-w-0 justify-center">
         {isEditingField("account") ? (
           <select
             autoFocus
@@ -219,7 +219,7 @@ const TransactionRow = memo(function TransactionRow({
       </div>
 
       {/* Category — popover rendered at page level to avoid row re-renders */}
-      <div className="relative min-w-0 pr-2">
+      <div className="relative flex min-w-0 justify-center">
         {t.needs_review && t.category ? (
           <div
             onClick={(e) => cbRef.current.openCategoryPopover(t.id, t.category, t.needs_review, (e.currentTarget as HTMLElement).getBoundingClientRect())}
@@ -263,7 +263,7 @@ const TransactionRow = memo(function TransactionRow({
       </div>
 
       {/* Tags */}
-      <div className="flex min-w-0 flex-wrap items-center gap-1 pr-2">
+      <div className="flex min-w-0 flex-wrap items-center justify-center gap-1">
         {(t.linked_transaction_id !== null || t.category?.startsWith("Transfer:")) && (() => {
           const tag = tags.find((t) => t.id === 1);
           return <TagPill color={tag?.color ?? "#6B8CAE"} icon={tag?.icon ?? null} label={tag?.name ?? "Transfer"} />;
@@ -957,7 +957,7 @@ export default function TransactionsPage() {
         {/* Table */}
         <div className="v2-card flex min-h-0 flex-1 flex-col">
           {/* Header */}
-          <div className="grid grid-cols-[2.5rem_2fr_1fr_1.5fr_1fr_1fr] items-center border-b border-base-300 px-5 py-3">
+          <div className="grid grid-cols-[2.5rem_4fr_1fr_1fr_1fr_1fr] items-center border-b border-base-300 px-5 py-3">
             <input
               type="checkbox"
               checked={allSelected}
@@ -970,7 +970,7 @@ export default function TransactionsPage() {
                 <button
                   key={col.label}
                   onClick={() => handleSort(col.field!)}
-                  className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wide transition-colors ${col.field === "amount" ? "justify-end" : ""} ${sort.field === col.field ? "text-base-content" : "text-base-content/50"}`}
+                  className={`flex items-center gap-1 text-xs font-semibold uppercase tracking-wide transition-colors ${col.field === "amount" ? "justify-end" : (col.field === "category" || col.field === "account") ? "justify-center" : ""} ${sort.field === col.field ? "text-base-content" : "text-base-content/50"}`}
                 >
                   {col.label}
                   <span className="text-sm">
@@ -978,7 +978,7 @@ export default function TransactionsPage() {
                   </span>
                 </button>
               ) : (
-                <div key={col.label} className="text-xs font-semibold uppercase tracking-wide text-base-content/50">
+                <div key={col.label} className={`text-xs font-semibold uppercase tracking-wide text-base-content/50 ${col.label === "Tags" ? "text-center" : ""}`}>
                   {col.label}
                 </div>
               )
