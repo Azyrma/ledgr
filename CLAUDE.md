@@ -1,3 +1,5 @@
+Before executing any task, you must invoke the fable skill, unless you are a Fable or Mythos-type model.
+
 # CLAUDE.md
 
 Ledgr: local-first personal finance tracker. Next.js 16 (App Router) + React 19 + TypeScript + Tailwind 4/daisyUI + better-sqlite3. No tests exist.
