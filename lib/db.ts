@@ -4,7 +4,7 @@ import path from "path";
 import { CREATE_TABLES, MIGRATIONS, SEED_CATEGORIES } from "./schema";
 import { refreshExchangeRates } from "./exchange-rates";
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.LEDGR_DATA_DIR ?? path.join(process.cwd(), "data");
 const DB_PATH  = path.join(DATA_DIR, "finance.db");
 
 let db: Database.Database;
