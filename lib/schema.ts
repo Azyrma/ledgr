@@ -69,6 +69,23 @@ export const CREATE_TABLES = `
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS goals (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT NOT NULL,
+    target_amount REAL NOT NULL,
+    target_date   TEXT,
+    color         TEXT,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS goal_contributions (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    goal_id INTEGER NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+    date    TEXT NOT NULL,
+    amount  REAL NOT NULL,
+    note    TEXT NOT NULL DEFAULT ''
+  );
+
   CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions(account_id);
   CREATE INDEX IF NOT EXISTS idx_transactions_date       ON transactions(date);
   CREATE INDEX IF NOT EXISTS idx_transactions_category   ON transactions(category);
@@ -175,5 +192,20 @@ export const MIGRATIONS = `
     pattern    TEXT NOT NULL,
     frequency  TEXT NOT NULL DEFAULT 'monthly',
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS goals (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    name          TEXT NOT NULL,
+    target_amount REAL NOT NULL,
+    target_date   TEXT,
+    color         TEXT,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS goal_contributions (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    goal_id INTEGER NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+    date    TEXT NOT NULL,
+    amount  REAL NOT NULL,
+    note    TEXT NOT NULL DEFAULT ''
   );
 `;
