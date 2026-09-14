@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, sqlPlaceholders } from "@/lib/db";
+import { syncTransfer } from "@/lib/transfers";
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -16,6 +17,9 @@ export async function PATCH(request: NextRequest) {
     } else {
       db.prepare(`UPDATE transactions SET category = ?, needs_review = 0 WHERE id IN (${placeholders})`)
         .run(category ?? "", ...ids);
+      // Same as the single-row PATCH: a "Transfer: <Account>" category creates the
+      // mirror transaction; syncTransfer skips rows that are already linked.
+      for (const id of ids) syncTransfer(db, Number(id));
     }
 
     return NextResponse.json({ updated: ids.length });
