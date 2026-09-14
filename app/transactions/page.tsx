@@ -1013,8 +1013,8 @@ export default function TransactionsPage() {
 
       {/* Bulk action bar */}
       {selected.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20">
-          <div ref={barRef} className="relative flex items-center gap-3 rounded-xl border border-base-300 bg-base-100 px-5 py-3 shadow-xl">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 w-max max-w-[calc(100vw-2rem)]">
+          <div ref={barRef} className="relative flex flex-wrap items-center justify-center gap-3 rounded-xl border border-base-300 bg-base-100 px-5 py-3 shadow-xl">
             <span className="text-sm font-medium text-base-content whitespace-nowrap">
               {selected.size} transaction{selected.size !== 1 ? "s" : ""} selected
             </span>
