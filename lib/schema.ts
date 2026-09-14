@@ -61,6 +61,14 @@ export const CREATE_TABLES = `
     UNIQUE(category, month)
   );
 
+  CREATE TABLE IF NOT EXISTS recurring (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    title      TEXT NOT NULL,
+    pattern    TEXT NOT NULL,
+    frequency  TEXT NOT NULL DEFAULT 'monthly',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions(account_id);
   CREATE INDEX IF NOT EXISTS idx_transactions_date       ON transactions(date);
   CREATE INDEX IF NOT EXISTS idx_transactions_category   ON transactions(category);
@@ -160,5 +168,12 @@ export const MIGRATIONS = `
     month    TEXT NOT NULL,
     amount   REAL NOT NULL,
     UNIQUE(category, month)
+  );
+  CREATE TABLE IF NOT EXISTS recurring (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    title      TEXT NOT NULL,
+    pattern    TEXT NOT NULL,
+    frequency  TEXT NOT NULL DEFAULT 'monthly',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `;
