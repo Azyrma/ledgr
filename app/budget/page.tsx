@@ -89,14 +89,17 @@ export default function BudgetPage() {
 
   const ym = `${year}-${String(month).padStart(2, "0")}`;
 
-  const fetchData = useCallback(() => {
-    fetch(`/api/budget?year=${year}&month=${month}`)
-      .then((r) => r.json())
-      .then((d) => { if (!d.error) setData(d); setLoading(false); })
-      .catch(() => setLoading(false));
+  const fetchData = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
+    try {
+      const d = await (await fetch(`/api/budget?year=${year}&month=${month}`)).json();
+      if (!d.error) setData(d);
+    } finally {
+      setLoading(false);
+    }
   }, [year, month]);
 
-  useEffect(() => { setLoading(true); fetchData(); }, [fetchData]);
+  useEffect(() => { fetchData(true); }, [fetchData]);
 
   function prevMonth() {
     if (month === 1) { setMonth(12); setYear((y) => y - 1); }
