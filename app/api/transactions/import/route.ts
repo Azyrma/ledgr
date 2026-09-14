@@ -67,12 +67,22 @@ export async function POST(request: NextRequest) {
       "INSERT INTO imports (filename, account_id, count) VALUES (?, ?, ?)"
     );
 
+    // Auto-categorization rules: first matching rule (case-insensitive substring
+    // on description) fills in a category the parser left empty.
+    const rules = db.prepare("SELECT pattern, category FROM rules ORDER BY id").all() as
+      { pattern: string; category: string }[];
+    const ruleCategory = (description: string): string => {
+      const desc = description.toLowerCase();
+      return rules.find((r) => desc.includes(r.pattern.toLowerCase()))?.category ?? "";
+    };
+
     const insertMany = db.transaction((rows: typeof rowsToInsert) => {
       const importRecord = insertImport.run(file.name, accountId, rows.length);
       const importId = importRecord.lastInsertRowid;
       for (const t of rows) {
-        const needsReview = t.category !== "" && !validPaths.has(t.category) ? 1 : 0;
-        insert.run(accountId, t.date, t.description, t.amount, t.category, needsReview, importId, t.ticker ?? "", t.shares ?? 0);
+        const category = t.category === "" ? ruleCategory(t.description) : t.category;
+        const needsReview = category !== "" && !validPaths.has(category) ? 1 : 0;
+        insert.run(accountId, t.date, t.description, t.amount, category, needsReview, importId, t.ticker ?? "", t.shares ?? 0);
       }
     });
 

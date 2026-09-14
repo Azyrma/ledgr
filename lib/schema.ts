@@ -46,6 +46,13 @@ export const CREATE_TABLES = `
     fetched_at  TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS rules (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern    TEXT NOT NULL,
+    category   TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions(account_id);
   CREATE INDEX IF NOT EXISTS idx_transactions_date       ON transactions(date);
   CREATE INDEX IF NOT EXISTS idx_transactions_category   ON transactions(category);
@@ -133,4 +140,10 @@ export const MIGRATIONS = `
   INSERT OR IGNORE INTO tags (id, name, color, icon, is_system) VALUES (2, 'Owed by parents', '#C49A3C', NULL, 1);
   INSERT OR IGNORE INTO tags (id, name, color, icon, is_system) VALUES (3, 'Needs review',    '#E07B4F', NULL, 1);
   ALTER TABLE accounts ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
+  CREATE TABLE IF NOT EXISTS rules (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern    TEXT NOT NULL,
+    category   TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `;
