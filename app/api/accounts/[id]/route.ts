@@ -205,6 +205,24 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params;
+    const { archived } = await request.json();
+    if (archived === undefined)
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+
+    const db = getDb();
+    const result = db.prepare("UPDATE accounts SET archived = ? WHERE id = ?")
+      .run(archived ? 1 : 0, id);
+
+    if (result.changes === 0) return NextResponse.json({ error: "Account not found." }, { status: 404 });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed." }, { status: 500 });
+  }
+}
+
 export async function DELETE(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;

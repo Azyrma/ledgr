@@ -53,7 +53,7 @@ export function GET(request: NextRequest) {
 
   const accounts = db.prepare(`
     SELECT
-      a.id, a.name, a.type, a.currency, a.color, a.initial_balance, a.exchange_rate,
+      a.id, a.name, a.type, a.currency, a.color, a.initial_balance, a.exchange_rate, a.archived,
       COALESCE(a.initial_balance + SUM(t.amount), a.initial_balance) AS balance,
       COALESCE(SUM(CASE WHEN t.amount > 0 AND t.date >= ? AND t.date <= ? THEN t.amount ELSE 0 END), 0) AS income,
       COALESCE(SUM(CASE WHEN t.amount < 0 AND t.date >= ? AND t.date <= ? THEN t.amount ELSE 0 END), 0) AS expenses,
