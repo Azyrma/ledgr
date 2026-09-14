@@ -1,275 +1,261 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import PageHeader, { SplitTitle } from "@/app/components/PageHeader";
-
-type Holding = {
-  ticker: string;
-  name: string;
-  shares: number;
-  price: number;
-  value: number;
-  gainLoss: number;
-  gainPct: number;
-  color: string;
-};
-
-const HOLDINGS: Holding[] = [
-  { ticker: "VT",   name: "Vanguard Total World ETF",   shares: 48.2,  price: 115.42, value: 5563, gainLoss: 842,  gainPct: 17.8, color: "oklch(0.52 0.09 155)" },
-  { ticker: "VWRL", name: "Vanguard FTSE All-World",     shares: 30.0,  price: 108.60, value: 3258, gainLoss: 410,  gainPct: 14.4, color: "oklch(0.46 0.08 155)" },
-  { ticker: "AAPL", name: "Apple Inc.",                  shares: 10.0,  price: 189.30, value: 1893, gainLoss: 312,  gainPct: 19.7, color: "oklch(0.55 0.08 240)" },
-  { ticker: "MSFT", name: "Microsoft Corp.",             shares: 5.0,   price: 412.80, value: 2064, gainLoss: 520,  gainPct: 33.7, color: "oklch(0.52 0.1 200)" },
-  { ticker: "NOVO", name: "Novartis AG",                 shares: 15.0,  price: 98.10,  value: 1472, gainLoss: -88,  gainPct: -5.6, color: "oklch(0.65 0.1 50)" },
-  { ticker: "NESN", name: "Nestlé SA",                   shares: 20.0,  price: 89.20,  value: 1784, gainLoss: -210, gainPct: -10.5, color: "oklch(0.6 0.13 40)" },
-  { ticker: "Cash", name: "Cash & equivalents",          shares: 1,     price: 2412,   value: 2412, gainLoss: 0,    gainPct: 0, color: "var(--ink-4)" },
-];
-
-const ALLOCATION = [
-  { label: "ETFs",       pct: 46, color: "oklch(0.52 0.09 155)" },
-  { label: "US Stocks",  pct: 21, color: "oklch(0.52 0.1 200)" },
-  { label: "CH Stocks",  pct: 18, color: "oklch(0.6 0.13 40)" },
-  { label: "Cash",       pct: 12, color: "var(--ink-4)" },
-  { label: "Other",      pct: 3,  color: "oklch(0.65 0.12 310)" },
-];
-
-const PERF = [18446, 19200, 17800, 21300, 22000, 20400, 23100, 24600, 22800, 25100, 26900, 18446];
-const PERF_LABELS = ["May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr"];
-
-function PerfChart() {
-  const W = 600, H = 110;
-  const pad = { l: 56, r: 8, t: 10, b: 22 };
-  const iW = W - pad.l - pad.r, iH = H - pad.t - pad.b;
-  const n = PERF.length;
-  const max = Math.max(...PERF);
-  const min = Math.min(...PERF) * 0.95;
-  const range = max - min;
-  const pts: [number, number][] = PERF.map((v, i) => [
-    pad.l + (i / (n - 1)) * iW,
-    pad.t + iH - ((v - min) / range) * iH,
-  ]);
-  let d = `M${pts[0][0]},${pts[0][1]}`;
-  for (let i = 1; i < pts.length; i++) {
-    const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
-    const cx = (x0 + x1) / 2;
-    d += ` C${cx},${y0} ${cx},${y1} ${x1},${y1}`;
-  }
-  const fill = `${d} L${pts[n-1][0]},${H-pad.b} L${pts[0][0]},${H-pad.b} Z`;
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block" }}>
-      <defs>
-        <linearGradient id="invGrad" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="var(--brand)" stopOpacity="0.2" />
-          <stop offset="100%" stopColor="var(--brand)" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {[min, (min + max) / 2, max].map((v, i) => {
-        const y = pad.t + iH - ((v - min) / range) * iH;
-        return (
-          <g key={i}>
-            <line x1={pad.l} y1={y} x2={W - pad.r} y2={y} stroke="var(--hair)" strokeDasharray={i === 0 ? "" : "2 4"} />
-            <text x={pad.l - 6} y={y + 3.5} fontSize="10" fill="var(--ink-3)" textAnchor="end" fontFamily="'JetBrains Mono', monospace">
-              {Math.round(v / 1000)}k
-            </text>
-          </g>
-        );
-      })}
-      <path d={fill} fill="url(#invGrad)" />
-      <path d={d} stroke="var(--brand)" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      {PERF_LABELS.map((lab, i) => {
-        if ((n - 1 - i) % 2 !== 0) return null;
-        const x = pad.l + (i / (n - 1)) * iW;
-        const anchor = i === 0 ? "start" : i === n - 1 ? "end" : "middle";
-        return <text key={i} x={x} y={H - 5} fontSize="10" fill="var(--ink-3)" textAnchor={anchor}>{lab}</text>;
-      })}
-    </svg>
-  );
-}
-
-function DonutChart() {
-  const cx = 60, cy = 60, r = 48, strokeW = 18;
-  const circumference = 2 * Math.PI * r;
-  let offset = 0;
-  return (
-    <svg width="120" height="120" viewBox="0 0 120 120">
-      {ALLOCATION.map((seg) => {
-        const dash = (seg.pct / 100) * circumference;
-        const gap = circumference - dash;
-        const el = (
-          <circle
-            key={seg.label}
-            cx={cx} cy={cy} r={r}
-            fill="none"
-            stroke={seg.color}
-            strokeWidth={strokeW}
-            strokeDasharray={`${dash} ${gap}`}
-            strokeDashoffset={-offset}
-            style={{ transform: "rotate(-90deg)", transformOrigin: "60px 60px" }}
-          />
-        );
-        offset += dash;
-        return el;
-      })}
-      <text x={cx} y={cy - 4} textAnchor="middle" fontSize="13" fontWeight="700" fill="var(--ink)" fontFamily="'JetBrains Mono', monospace">18.4k</text>
-      <text x={cx} y={cy + 11} textAnchor="middle" fontSize="9" fill="var(--ink-3)">CHF total</text>
-    </svg>
-  );
-}
+import HoldingFormModal from "@/app/components/HoldingFormModal";
+import type { Account, Holding } from "@/app/components/AccountCard";
+import { formatCurrency } from "@/lib/utils";
 
 export default function InvestmentsPage() {
-  const totalValue = HOLDINGS.reduce((s, h) => s + h.value, 0);
-  const totalGain  = HOLDINGS.reduce((s, h) => s + h.gainLoss, 0);
-  const gainPct    = ((totalGain / (totalValue - totalGain)) * 100).toFixed(1);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [holdings, setHoldings] = useState<Holding[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [formTarget, setFormTarget] = useState<{ accountId: number; holding?: Holding } | null>(null);
+  const [deleting, setDeleting]     = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState<number | null>(null);
+
+  const fetchAll = useCallback(async () => {
+    const [accRes, holdRes] = await Promise.all([
+      fetch("/api/accounts"),
+      fetch("/api/holdings"),
+    ]);
+    const accs: Account[] = await accRes.json();
+    setAccounts(accs.filter((a) => a.type === "investment"));
+    setHoldings(await holdRes.json());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  async function handleDelete(id: number) {
+    setDeleting(id);
+    await fetch(`/api/holdings?id=${id}`, { method: "DELETE" });
+    setDeleting(null);
+    fetchAll();
+  }
+
+  async function handleRefreshPrices(accountId: number) {
+    setRefreshing(accountId);
+    try {
+      await fetch("/api/holdings/prices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ account_id: accountId }),
+      });
+      fetchAll();
+    } finally {
+      setRefreshing(null);
+    }
+  }
+
+  // CHF conversion uses the parent account's exchange_rate (known approximation
+  // when a holding's currency differs from the account's — see TODO.md).
+  const totalChf = accounts.reduce((sum, a) => {
+    const accHoldings = holdings.filter((h) => h.account_id === a.id);
+    return sum + accHoldings.reduce((s, h) => s + (h.market_value ?? h.total_value), 0) * a.exchange_rate;
+  }, 0);
+  const costChf = accounts.reduce((sum, a) => {
+    const accHoldings = holdings.filter((h) => h.account_id === a.id);
+    return sum + accHoldings.reduce((s, h) => s + h.total_value, 0) * a.exchange_rate;
+  }, 0);
+  const hasAnyMarket = holdings.some((h) => h.market_value != null);
+  const gainChf = totalChf - costChf;
 
   return (
     <div className="flex flex-col h-full">
-      <PageHeader
-        title={<SplitTitle left="Invest" right="ments" />}
-        actions={
-          <div style={{ display: "flex", gap: 8 }}>
-            <select className="btn btn-sm" style={{ fontSize: 13, cursor: "pointer" }}>
-              <option>All accounts</option>
-              <option>IBKR Brokerage</option>
-              <option>3a Pillar</option>
-            </select>
-            <select className="btn btn-sm" style={{ fontSize: 13, cursor: "pointer" }}>
-              <option>Last 12 months</option>
-              <option>YTD</option>
-              <option>All time</option>
-            </select>
-          </div>
-        }
-      />
+      <PageHeader title={<SplitTitle left="Invest" right="ments" />} />
 
       <div className="flex-1 px-9 pb-12 pt-2 space-y-4 overflow-y-auto">
-        {/* Hero + allocation */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 16 }}>
-          <div className="v2-card v2-card-pad">
-            <div className="muted" style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Total portfolio value</div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 4 }}>
-              <div className="display-serif" style={{ fontSize: 40, lineHeight: 1 }}>
-                CHF {totalValue.toLocaleString()}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 100, background: "var(--pos-soft)", color: "var(--pos)", fontSize: 13, fontWeight: 700 }}>
-                +{gainPct}% ↑
-              </div>
-            </div>
-            <div className="muted" style={{ fontSize: 13, marginBottom: 16 }}>
-              +CHF {totalGain.toLocaleString()} all-time gain
-            </div>
-            <PerfChart />
+        {loading ? (
+          <div className="flex items-center justify-center py-24">
+            <span className="loading loading-spinner loading-lg"></span>
           </div>
-
-          <div className="v2-card v2-card-pad">
-            <div className="display-serif" style={{ fontSize: 17, marginBottom: 14 }}>
-              Asset <em className="display-italic" style={{ color: "var(--brand)" }}>allocation</em>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <DonutChart />
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 7 }}>
-                {ALLOCATION.map((seg) => (
-                  <div key={seg.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: 2, background: seg.color, flexShrink: 0 }} />
-                      <span style={{ fontSize: 12.5 }}>{seg.label}</span>
-                    </div>
-                    <span className="num" style={{ fontSize: 12.5, fontWeight: 600 }}>{seg.pct}%</span>
+        ) : accounts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
+            <p className="text-sm font-medium text-base-content/60">No investment accounts yet</p>
+            <p className="text-xs text-base-content/40">Add an account of type &quot;Investment&quot; on the Accounts page</p>
+          </div>
+        ) : (
+          <>
+            {/* Portfolio summary */}
+            <div className="v2-card v2-card-pad">
+              <div className="muted" style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>
+                Total portfolio value
+              </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+                <div className="display-serif num" style={{ fontSize: 40, lineHeight: 1 }}>
+                  {formatCurrency(totalChf)}
+                </div>
+                {hasAnyMarket && costChf > 0 && (
+                  <div
+                    className="num"
+                    style={{
+                      display: "flex", alignItems: "center", gap: 4, padding: "3px 10px",
+                      borderRadius: 100, fontSize: 13, fontWeight: 700,
+                      background: gainChf >= 0 ? "var(--pos-soft)" : "var(--surface-2)",
+                      color: gainChf >= 0 ? "var(--pos)" : "var(--neg)",
+                    }}
+                  >
+                    {gainChf >= 0 ? "+" : ""}{formatCurrency(gainChf)}
+                    {" "}({costChf > 0 ? ((gainChf / costChf) * 100).toFixed(1) : "0.0"}%)
                   </div>
-                ))}
+                )}
               </div>
             </div>
 
-            <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              <div style={{ padding: "8px 10px", borderRadius: 8, background: "var(--pos-soft)" }}>
-                <div className="muted" style={{ fontSize: 10.5, color: "var(--pos)" }}>Total gain</div>
-                <div className="num" style={{ fontSize: 13, fontWeight: 700, color: "var(--pos)", marginTop: 2 }}>
-                  +CHF {totalGain.toLocaleString()}
-                </div>
-              </div>
-              <div style={{ padding: "8px 10px", borderRadius: 8, background: "var(--surface-2)" }}>
-                <div className="muted" style={{ fontSize: 10.5 }}>Cost basis</div>
-                <div className="num" style={{ fontSize: 13, fontWeight: 700, marginTop: 2 }}>
-                  CHF {(totalValue - totalGain).toLocaleString()}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+            {/* One card per investment account */}
+            {accounts.map((account) => {
+              const accHoldings = holdings.filter((h) => h.account_id === account.id);
+              const hasMarketPrices = accHoldings.some((h) => h.market_value != null);
+              const hasIsins = accHoldings.some((h) => h.isin);
+              const totalMarketValue = accHoldings.reduce((s, h) => s + (h.market_value ?? h.total_value), 0);
+              const totalCostBasis   = accHoldings.reduce((s, h) => s + h.total_value, 0);
 
-        {/* Holdings table */}
-        <div className="v2-card v2-card-pad">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <div className="display-serif" style={{ fontSize: 17 }}>
-              Holdings <em className="display-italic" style={{ color: "var(--brand)" }}>detail</em>
-            </div>
-            <span className="chip" style={{ fontSize: 12 }}>{HOLDINGS.length} positions</span>
-          </div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                {["Ticker", "Name", "Shares", "Price", "Value", "Gain / Loss", ""].map((h, i) => (
-                  <th key={h + i} style={{
-                    textAlign: i <= 1 ? "left" : "right",
-                    fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em",
-                    color: "var(--ink-3)", fontWeight: 500,
-                    paddingBottom: 10, borderBottom: "1px solid var(--hair)",
-                  }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {HOLDINGS.map((h, i) => (
-                <tr key={h.ticker} style={{ borderBottom: i < HOLDINGS.length - 1 ? "1px solid var(--hair)" : "none" }}>
-                  <td style={{ padding: "10px 0" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: 2, background: h.color, display: "inline-block" }} />
-                      <span className="num" style={{ fontSize: 13, fontWeight: 700 }}>{h.ticker}</span>
-                    </span>
-                  </td>
-                  <td style={{ padding: "10px 12px 10px 0", fontSize: 13, color: "var(--ink-2)" }}>{h.name}</td>
-                  <td className="num" style={{ textAlign: "right", fontSize: 13, padding: "10px 0" }}>{h.shares}</td>
-                  <td className="num" style={{ textAlign: "right", fontSize: 13, padding: "10px 0" }}>
-                    {h.ticker === "Cash" ? "—" : `${h.price.toFixed(2)}`}
-                  </td>
-                  <td className="num" style={{ textAlign: "right", fontSize: 13, fontWeight: 600, padding: "10px 0" }}>
-                    CHF {h.value.toLocaleString()}
-                  </td>
-                  <td style={{ textAlign: "right", padding: "10px 0" }}>
-                    {h.gainLoss !== 0 ? (
-                      <span style={{
-                        fontSize: 12.5, fontWeight: 600,
-                        color: h.gainLoss > 0 ? "var(--pos)" : "var(--neg)",
-                      }}>
-                        {h.gainLoss > 0 ? "+" : ""}CHF {h.gainLoss} ({h.gainPct > 0 ? "+" : ""}{h.gainPct}%)
+              return (
+                <div key={account.id} className="v2-card v2-card-pad">
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 3, background: account.color, display: "inline-block" }} />
+                      <span className="display-serif" style={{ fontSize: 17 }}>{account.name}</span>
+                      <span className="chip" style={{ fontSize: 12 }}>
+                        {accHoldings.length} position{accHoldings.length !== 1 ? "s" : ""}
                       </span>
-                    ) : (
-                      <span className="muted" style={{ fontSize: 12 }}>—</span>
-                    )}
-                  </td>
-                  <td style={{ textAlign: "right", padding: "10px 0", paddingLeft: 8 }}>
-                    <div style={{ height: 6, width: `${(h.value / totalValue) * 120}px`, background: h.color, borderRadius: 100, marginLeft: "auto", minWidth: 4 }} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr style={{ borderTop: "2px solid var(--hair)" }}>
-                <td colSpan={4} style={{ padding: "10px 0", fontSize: 13, fontWeight: 600 }}>Total</td>
-                <td className="num" style={{ textAlign: "right", fontSize: 14, fontWeight: 700, padding: "10px 0" }}>
-                  CHF {totalValue.toLocaleString()}
-                </td>
-                <td style={{ textAlign: "right", padding: "10px 0" }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--pos)" }}>
-                    +CHF {totalGain.toLocaleString()} (+{gainPct}%)
-                  </span>
-                </td>
-                <td />
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <span className="num" style={{ fontSize: 14, fontWeight: 600 }}>
+                        {formatCurrency(totalMarketValue, account.currency)}
+                      </span>
+                      {hasMarketPrices && totalCostBasis > 0 && (
+                        <span
+                          className="num"
+                          style={{ fontSize: 12.5, fontWeight: 600, color: totalMarketValue >= totalCostBasis ? "var(--pos)" : "var(--neg)" }}
+                        >
+                          {totalMarketValue >= totalCostBasis ? "+" : ""}
+                          {formatCurrency(totalMarketValue - totalCostBasis, account.currency)}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => setFormTarget({ accountId: account.id })}
+                        className="btn btn-primary btn-xs"
+                      >
+                        Add holding
+                      </button>
+                      {hasIsins && (
+                        <button
+                          onClick={() => handleRefreshPrices(account.id)}
+                          disabled={refreshing === account.id}
+                          className="btn btn-outline btn-xs"
+                        >
+                          {refreshing === account.id ? "Fetching…" : "Refresh prices"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {accHoldings.length === 0 ? (
+                    <p className="muted" style={{ fontSize: 13 }}>No holdings yet</p>
+                  ) : (
+                    <div style={{ overflowX: "auto" }}>
+                      <table className="table table-sm">
+                        <thead>
+                          <tr>
+                            <th>Name</th>
+                            <th className="text-right">Shares</th>
+                            <th className="text-right">Avg Cost</th>
+                            {hasMarketPrices && <th className="text-right">Price</th>}
+                            <th className="text-right">Value</th>
+                            {hasMarketPrices && <th className="text-right">Gain/Loss</th>}
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {accHoldings.map((h) => {
+                            const displayValue = h.market_value ?? h.total_value;
+                            const gainLoss = h.market_value != null ? h.market_value - h.total_value : null;
+                            const gainPct = gainLoss != null && h.total_value > 0 ? (gainLoss / h.total_value) * 100 : null;
+
+                            return (
+                              <tr key={h.id} className="hover">
+                                <td>
+                                  <p className="font-semibold">{h.name}</p>
+                                  {h.isin && <p className="text-xs text-base-content/40">{h.isin}</p>}
+                                </td>
+                                <td className="text-right font-mono">
+                                  {h.shares % 1 === 0 ? h.shares : h.shares.toFixed(4)}
+                                </td>
+                                <td className="text-right font-mono">
+                                  {formatCurrency(h.avg_cost_per_share, h.currency)}
+                                </td>
+                                {hasMarketPrices && (
+                                  <td className="text-right font-mono">
+                                    {h.current_price != null ? formatCurrency(h.current_price, h.currency) : "—"}
+                                  </td>
+                                )}
+                                <td className="text-right font-mono">
+                                  {h.market_value != null && (
+                                    <p className="text-xs text-base-content/40">{formatCurrency(h.total_value, h.currency)}</p>
+                                  )}
+                                  <p className="font-medium">{formatCurrency(displayValue, h.currency)}</p>
+                                </td>
+                                {hasMarketPrices && (
+                                  <td className="text-right font-mono">
+                                    {gainLoss != null ? (
+                                      <span className={gainLoss >= 0 ? "text-success" : "text-error"}>
+                                        {gainLoss >= 0 ? "+" : ""}{formatCurrency(gainLoss, h.currency)}
+                                        {gainPct != null && (
+                                          <span className="ml-1 text-xs">({gainPct >= 0 ? "+" : ""}{gainPct.toFixed(1)}%)</span>
+                                        )}
+                                      </span>
+                                    ) : "—"}
+                                  </td>
+                                )}
+                                <td>
+                                  <div className="flex items-center justify-end gap-1">
+                                    <button
+                                      onClick={() => setFormTarget({ accountId: account.id, holding: h })}
+                                      className="btn btn-ghost btn-xs"
+                                      title="Edit"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      onClick={() => handleDelete(h.id)}
+                                      disabled={deleting === h.id}
+                                      className="btn btn-ghost btn-xs text-error"
+                                      title="Delete"
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                                        <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                        <path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </>
+        )}
       </div>
+
+      {formTarget && (
+        <HoldingFormModal
+          accountId={formTarget.accountId}
+          initial={formTarget.holding}
+          onClose={() => setFormTarget(null)}
+          onSaved={fetchAll}
+        />
+      )}
     </div>
   );
 }
