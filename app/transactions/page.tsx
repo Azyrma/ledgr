@@ -1181,7 +1181,8 @@ export default function TransactionsPage() {
       )}
 
       {reimbursableUndo && (
-        <div className="toast toast-bottom toast-center z-50">
+        // ponytail: fixed offset clears a one-row action bar; measure barRef if the wrapped bar ever overlaps
+        <div className={`toast toast-bottom toast-center z-50 ${selected.size > 0 ? "mb-20" : ""}`}>
           <div className="alert shadow-lg flex items-center gap-3">
             <span className="text-sm">Marked {reimbursableUndo.ids.length} transaction{reimbursableUndo.ids.length !== 1 ? "s" : ""} as owed by parents.</span>
             <button onClick={handleUndoMarkReimbursable} className="btn btn-sm btn-ghost">Undo</button>
