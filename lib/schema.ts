@@ -53,6 +53,14 @@ export const CREATE_TABLES = `
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS budgets (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL,
+    month    TEXT NOT NULL,
+    amount   REAL NOT NULL,
+    UNIQUE(category, month)
+  );
+
   CREATE INDEX IF NOT EXISTS idx_transactions_account_id ON transactions(account_id);
   CREATE INDEX IF NOT EXISTS idx_transactions_date       ON transactions(date);
   CREATE INDEX IF NOT EXISTS idx_transactions_category   ON transactions(category);
@@ -145,5 +153,12 @@ export const MIGRATIONS = `
     pattern    TEXT NOT NULL,
     category   TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE IF NOT EXISTS budgets (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    category TEXT NOT NULL,
+    month    TEXT NOT NULL,
+    amount   REAL NOT NULL,
+    UNIQUE(category, month)
   );
 `;
