@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import AccountCard, { Account, Holding } from "../components/AccountCard";
 import AccountModal from "../components/AccountModal";
-import HoldingsModal from "../components/HoldingsModal";
 import PageHeader, { SplitTitle } from "../components/PageHeader";
 import NetWorthChart from "../components/NetWorthChart";
 import DateFilter, { DATE_RANGES } from "../components/DateFilter";
@@ -29,7 +28,6 @@ export default function AccountsPage() {
   const [editTarget, setEditTarget] = useState<EditTarget>(null);
   const [deleteTarget, setDeleteTarget] = useState<Account | null>(null);
   const [deleting, setDeleting]     = useState(false);
-  const [holdingsAccount, setHoldingsAccount] = useState<Account | null>(null);
   const [holdingsMap, setHoldingsMap] = useState<Record<number, Holding[]>>({});
   const [nwDateRange, setNwDateRange] = useState("12m");
   const [nwData, setNwData]           = useState<NetWorthData | null>(null);
@@ -180,7 +178,7 @@ export default function AccountsPage() {
                       onEdit={openEdit}
                       onDelete={setDeleteTarget}
                       onArchive={handleArchive}
-                      onViewHoldings={setHoldingsAccount}
+                      onViewHoldings={() => router.push("/investments")}
                       onView={(a) => router.push(`/accounts/${a.id}`)}
                     />
                   ))}
@@ -201,7 +199,7 @@ export default function AccountsPage() {
                       onEdit={openEdit}
                       onDelete={setDeleteTarget}
                       onArchive={handleArchive}
-                      onViewHoldings={account.type === "investment" ? setHoldingsAccount : undefined}
+                      onViewHoldings={account.type === "investment" ? () => router.push("/investments") : undefined}
                       onView={(a) => router.push(`/accounts/${a.id}`)}
                     />
                   ))}
@@ -217,14 +215,6 @@ export default function AccountsPage() {
           initial={editTarget ? { ...editTarget } : undefined}
           onClose={() => setShowModal(false)}
           onSaved={handleAccountSaved}
-        />
-      )}
-
-      {holdingsAccount && (
-        <HoldingsModal
-          account={holdingsAccount}
-          onClose={() => setHoldingsAccount(null)}
-          onChanged={() => { fetchAccounts(nwDateRange); fetchAllHoldings(); }}
         />
       )}
 
