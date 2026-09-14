@@ -7,6 +7,7 @@ import ExportCsvModal from "../components/ExportCsvModal";
 import TransactionFilters, { DEFAULT_FILTERS, type Filters } from "../components/TransactionFilters";
 import TransactionDateFilter from "../components/TransactionDateFilter";
 import SetCategoryPopover, { buildSections, type Section } from "../components/SetCategoryPopover";
+import RuleModal from "../components/RuleModal";
 import PageHeader, { SplitTitle } from "../components/PageHeader";
 import { formatCurrency } from "@/lib/utils";
 import { buildCategoryDisplayMap, type CategoryDisplay, type FlatCat } from "@/lib/categories";
@@ -336,6 +337,7 @@ const CategoryPopoverPortal = memo(function CategoryPopoverPortal({
   cbRef: { current: RowCallbacks };
 }) {
   const [target, setTarget] = useState<CatPopoverTarget>(null);
+  const [rulePattern, setRulePattern] = useState<string | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   handleRef.current = { open: setTarget, close: () => setTarget(null) };
 
@@ -349,6 +351,16 @@ const CategoryPopoverPortal = memo(function CategoryPopoverPortal({
     window.addEventListener("scroll", onScroll, true);
     return () => window.removeEventListener("scroll", onScroll, true);
   }, [target]);
+
+  if (rulePattern !== null) {
+    return (
+      <RuleModal
+        initialPattern={rulePattern}
+        onClose={() => setRulePattern(null)}
+        onSaved={() => {}}
+      />
+    );
+  }
 
   if (!target) return null;
 
@@ -385,6 +397,11 @@ const CategoryPopoverPortal = memo(function CategoryPopoverPortal({
           patchTransaction(target.id, { category: cat });
         }}
         onClose={() => setTarget(null)}
+        onAddRule={() => {
+          const tx = cbRef.current.transactions.find((t) => t.id === target.id);
+          setTarget(null);
+          setRulePattern(tx?.description ?? "");
+        }}
       />
     </div>
   );

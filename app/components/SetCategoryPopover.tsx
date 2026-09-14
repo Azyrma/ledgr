@@ -24,6 +24,8 @@ type Props = {
   direction?: "up" | "down";
   sections?: Section[];
   transferAccounts?: TransferAccount[];
+  /** When set, shows an "Add rule" footer button (used by the per-transaction popover). */
+  onAddRule?: () => void;
 };
 
 export function buildSections(cats: FlatCat[]): Section[] {
@@ -59,7 +61,7 @@ export function buildSections(cats: FlatCat[]): Section[] {
   ].filter((s) => s.options.length > 0);
 }
 
-export default function SetCategoryPopover({ onSelect, onClose, direction = "up", sections: sectionsProp, transferAccounts: accountsProp }: Props) {
+export default function SetCategoryPopover({ onSelect, onClose, direction = "up", sections: sectionsProp, transferAccounts: accountsProp, onAddRule }: Props) {
   const [fetchedSections, setFetchedSections] = useState<Section[]>([]);
   const [fetchedAccounts, setFetchedAccounts] = useState<TransferAccount[]>([]);
   const [search, setSearch] = useState("");
@@ -215,6 +217,20 @@ export default function SetCategoryPopover({ onSelect, onClose, direction = "up"
           </div>
         )}
       </div>
+
+      {onAddRule && (
+        <div className="border-t border-base-300 p-1">
+          <button
+            onClick={onAddRule}
+            className="btn btn-ghost btn-xs w-full justify-start font-normal text-base-content/70"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Add rule
+          </button>
+        </div>
+      )}
     </div>
   );
 }
