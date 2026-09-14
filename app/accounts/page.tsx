@@ -72,13 +72,23 @@ export default function AccountsPage() {
     fetchAllHoldings();
   }
 
+  async function handleArchive(account: Account) {
+    await fetch(`/api/accounts/${account.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ archived: account.archived ? 0 : 1 }),
+    });
+    fetchAccounts(nwDateRange);
+  }
+
   function handleAccountSaved() {
     fetchAccounts(nwDateRange);
     fetchAllHoldings();
   }
 
-  const regularAccounts = accounts.filter((a) => a.type !== "investment");
-  const investmentAccounts = accounts.filter((a) => a.type === "investment");
+  const regularAccounts = accounts.filter((a) => !a.archived && a.type !== "investment");
+  const investmentAccounts = accounts.filter((a) => !a.archived && a.type === "investment");
+  const archivedAccounts = accounts.filter((a) => a.archived);
   const periodLabel = (DATE_RANGES.find((r) => r.value === nwDateRange)?.label ?? "Last 12 months").toLowerCase();
 
   return (
@@ -151,7 +161,7 @@ export default function AccountsPage() {
                 <h2 className="mb-4 text-sm font-semibold text-base-content/50 uppercase tracking-wider">Accounts</h2>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {regularAccounts.map((account) => (
-                    <AccountCard key={account.id} account={account} periodLabel={periodLabel} onEdit={openEdit} onDelete={setDeleteTarget} onView={(a) => router.push(`/accounts/${a.id}`)} />
+                    <AccountCard key={account.id} account={account} periodLabel={periodLabel} onEdit={openEdit} onDelete={setDeleteTarget} onArchive={handleArchive} onView={(a) => router.push(`/accounts/${a.id}`)} />
                   ))}
                 </div>
               </section>
@@ -169,7 +179,29 @@ export default function AccountsPage() {
                       periodLabel={periodLabel}
                       onEdit={openEdit}
                       onDelete={setDeleteTarget}
+                      onArchive={handleArchive}
                       onViewHoldings={setHoldingsAccount}
+                      onView={(a) => router.push(`/accounts/${a.id}`)}
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {archivedAccounts.length > 0 && (
+              <section>
+                <h2 className="mb-4 text-sm font-semibold text-base-content/50 uppercase tracking-wider">Archived</h2>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {archivedAccounts.map((account) => (
+                    <AccountCard
+                      key={account.id}
+                      account={account}
+                      holdings={account.type === "investment" ? holdingsMap[account.id] : undefined}
+                      periodLabel={periodLabel}
+                      onEdit={openEdit}
+                      onDelete={setDeleteTarget}
+                      onArchive={handleArchive}
+                      onViewHoldings={account.type === "investment" ? setHoldingsAccount : undefined}
                       onView={(a) => router.push(`/accounts/${a.id}`)}
                     />
                   ))}

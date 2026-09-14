@@ -13,6 +13,7 @@ export type Account = {
   income: number;
   expenses: number;
   transaction_count: number;
+  archived: number;
   sparkline?: number[];
 };
 
@@ -37,6 +38,7 @@ type Props = {
   periodLabel?: string;
   onEdit: (account: Account) => void;
   onDelete: (account: Account) => void;
+  onArchive: (account: Account) => void;
   onViewHoldings?: (account: Account) => void;
   onView?: (account: Account) => void;
 };
@@ -104,7 +106,7 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   ),
 };
 
-export default function AccountCard({ account, holdings, periodLabel = "all time", onEdit, onDelete, onViewHoldings, onView }: Props) {
+export default function AccountCard({ account, holdings, periodLabel = "all time", onEdit, onDelete, onArchive, onViewHoldings, onView }: Props) {
   const typeLabel = ACCOUNT_TYPES.find((t) => t.value === account.type)?.label ?? account.type;
   const isInvestment = account.type === "investment";
   const hasMarketPrices = holdings?.some((h) => h.market_value != null) ?? false;
@@ -149,6 +151,13 @@ export default function AccountCard({ account, holdings, periodLabel = "all time
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); onArchive(account); }} className="btn btn-ghost btn-xs" title={account.archived ? "Unarchive" : "Archive"}>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="4" width="20" height="5" rx="1" />
+                <path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9" />
+                <line x1="10" y1="13" x2="14" y2="13" />
               </svg>
             </button>
             <button onClick={(e) => { e.stopPropagation(); onDelete(account); }} className="btn btn-ghost btn-xs" style={{ color: "var(--neg)" }} title="Delete">
