@@ -177,11 +177,11 @@ export default function CsvImportModal({ onClose, onImported }: Props) {
             <div className="flex flex-col gap-5">
               <div className="flex items-center gap-3 rounded-lg bg-base-200 px-4 py-3">
                 <span className="text-2xl">{BANK_ICONS[bankType]}</span>
-                <div>
-                  <p className="text-sm font-medium">{file.name}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium line-clamp-2 break-all">{file.name}</p>
                   <p className="text-xs text-base-content/50">{BANK_LABELS[bankType]}</p>
                 </div>
-                <button onClick={reset} className="btn btn-ghost btn-xs ml-auto">Change</button>
+                <button onClick={reset} className="btn btn-ghost btn-xs shrink-0">Change</button>
               </div>
 
               <fieldset className="fieldset">
