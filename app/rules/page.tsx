@@ -10,10 +10,10 @@ export default function RulesPage() {
   const [showModal, setShowModal]   = useState(false);
   const [editTarget, setEditTarget] = useState<Rule | undefined>(undefined);
 
-  const fetchRules = useCallback(async () => {
-    const res = await fetch("/api/rules");
-    setRules(await res.json());
-    setLoading(false);
+  const fetchRules = useCallback(() => {
+    fetch("/api/rules")
+      .then((r) => r.json())
+      .then((d) => { setRules(d); setLoading(false); });
   }, []);
 
   useEffect(() => { fetchRules(); }, [fetchRules]);

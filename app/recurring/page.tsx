@@ -40,11 +40,13 @@ export default function RecurringPage() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<{ initial?: RecurringItem; prefill?: { title?: string; pattern?: string; frequency?: string } } | null>(null);
 
-  const fetchData = useCallback(async () => {
-    const res = await fetch("/api/recurring");
-    const d = await res.json();
-    if (!d.error) { setItems(d.items); setSuggestions(d.suggestions); }
-    setLoading(false);
+  const fetchData = useCallback(() => {
+    fetch("/api/recurring")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.error) { setItems(d.items); setSuggestions(d.suggestions); }
+        setLoading(false);
+      });
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -62,8 +64,13 @@ export default function RecurringPage() {
   const monthlyIncome = income.reduce(
     (s, r) => s + (r.last_amount ?? 0) * (MONTHLY_FACTOR[r.frequency] ?? 1), 0);
 
-  const today = new Date().toISOString().split("T")[0];
-  const weekAhead = new Date(Date.now() + 7 * 86_400_000).toISOString().split("T")[0];
+  const [{ today, weekAhead }] = useState(() => {
+    const now = Date.now();
+    return {
+      today: new Date(now).toISOString().split("T")[0],
+      weekAhead: new Date(now + 7 * 86_400_000).toISOString().split("T")[0],
+    };
+  });
   const dueThisWeek = items.filter((r) => r.next_due && r.next_due >= today && r.next_due <= weekAhead);
 
   function renderRow(r: EnrichedItem, i: number, arr: EnrichedItem[]) {
