@@ -1,90 +1,166 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import PageHeader, { SplitTitle } from "@/app/components/PageHeader";
+import GoalModal, { type Goal } from "@/app/components/GoalModal";
+import { formatCurrency } from "@/lib/utils";
 
-type SaveGoal = {
-  id: number;
-  name: string;
-  icon: string;
-  color: string;
-  current: number;
-  target: number;
-  monthly: number;
-  targetDate: string;
-  status: "on-track" | "ahead" | "at-risk";
+type Contribution = { id: number; date: string; amount: number; note: string };
+
+type GoalData = Goal & {
+  created_at: string;
+  saved: number;
+  monthly_needed: number | null;
+  contributions: Contribution[];
 };
 
-type PayGoal = {
-  id: number;
-  name: string;
-  icon: string;
-  color: string;
-  balance: number;
-  originalBalance: number;
-  rate: number;
-  minPayment: number;
-  payoffDate: string;
-  interestSaved: number;
-  strategy: "avalanche" | "snowball";
-};
+const DEFAULT_COLOR = "#6FA77A";
 
-const SAVE_GOALS: SaveGoal[] = [
-  {
-    id: 1, name: "Emergency Fund", icon: "🛡️", color: "oklch(0.52 0.09 155)",
-    current: 8400, target: 15000, monthly: 500, targetDate: "Dec 2026",
-    status: "on-track",
-  },
-  {
-    id: 2, name: "Japan Trip", icon: "✈️", color: "oklch(0.52 0.1 200)",
-    current: 2800, target: 5000, monthly: 400, targetDate: "Sep 2025",
-    status: "ahead",
-  },
-  {
-    id: 3, name: "New MacBook", icon: "💻", color: "oklch(0.55 0.08 240)",
-    current: 600, target: 2499, monthly: 250, targetDate: "Jun 2025",
-    status: "at-risk",
-  },
-  {
-    id: 4, name: "House Down Payment", icon: "🏠", color: "oklch(0.6 0.13 40)",
-    current: 32000, target: 120000, monthly: 2000, targetDate: "Jan 2030",
-    status: "on-track",
-  },
-];
+function formatDate(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
+}
 
-const PAY_GOALS: PayGoal[] = [
-  {
-    id: 1, name: "Credit Card", icon: "💳", color: "oklch(0.52 0.12 35)",
-    balance: 3200, originalBalance: 5000, rate: 14.9,
-    minPayment: 80, payoffDate: "Aug 2026", interestSaved: 420, strategy: "avalanche",
-  },
-  {
-    id: 2, name: "Car Loan", icon: "🚗", color: "oklch(0.65 0.1 50)",
-    balance: 8600, originalBalance: 18000, rate: 4.5,
-    minPayment: 320, payoffDate: "Mar 2028", interestSaved: 680, strategy: "snowball",
-  },
-];
+// Timeline: straight target line (start → target date) and cumulative actual line.
+function GoalTimeline({ goal }: { goal: GoalData }) {
+  const W = 320, H = 90;
+  const pad = { l: 6, r: 6, t: 8, b: 8 };
+  const color = goal.color ?? DEFAULT_COLOR;
 
-const STATUS_CONFIG = {
-  "on-track": { label: "On track", bg: "var(--pos-soft)", color: "var(--pos)" },
-  "ahead":    { label: "Ahead",    bg: "var(--brand-soft)", color: "var(--brand)" },
-  "at-risk":  { label: "At risk",  bg: "var(--neg-soft)", color: "var(--neg)" },
-};
+  const startIso = goal.created_at.split(" ")[0];
+  const todayIso = new Date().toISOString().split("T")[0];
+  const endIso = [goal.target_date ?? "", todayIso].sort().pop()!;
+  const t0 = new Date(startIso).getTime();
+  const t1 = new Date(endIso).getTime();
+  const span = Math.max(t1 - t0, 86_400_000);
+  const yMax = Math.max(goal.target_amount, goal.saved, 1);
 
-function ProgressBar({ pct, color, warn }: { pct: number; color: string; warn?: boolean }) {
+  const x = (iso: string) => pad.l + ((new Date(iso).getTime() - t0) / span) * (W - pad.l - pad.r);
+  const y = (v: number) => H - pad.b - (v / yMax) * (H - pad.t - pad.b);
+
+  // Actual: cumulative contributions, carried flat to today.
+  let cum = 0;
+  const pts: [number, number][] = [[x(startIso), y(0)]];
+  for (const c of goal.contributions) {
+    if (c.date >= startIso) pts.push([x(c.date), y(cum)]);
+    cum += c.amount;
+    pts.push([x(c.date < startIso ? startIso : c.date), y(cum)]);
+  }
+  pts.push([x(todayIso), y(cum)]);
+  const actualD = pts.map(([px, py], i) => `${i === 0 ? "M" : "L"}${px.toFixed(1)},${py.toFixed(1)}`).join(" ");
+
   return (
-    <div style={{ height: 8, borderRadius: 100, background: "var(--surface-3)", overflow: "hidden" }}>
-      <div style={{ width: `${Math.min(pct, 100)}%`, height: "100%", borderRadius: 100, background: warn ? "var(--warn)" : color }} />
-    </div>
+    <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block" }}>
+      <line x1={pad.l} y1={y(0)} x2={W - pad.r} y2={y(0)} stroke="var(--hair)" />
+      {goal.target_date && (
+        <line
+          x1={x(startIso)} y1={y(0)}
+          x2={x(goal.target_date)} y2={y(goal.target_amount)}
+          stroke="var(--ink-4)" strokeWidth="1.5" strokeDasharray="4 4"
+        />
+      )}
+      <line x1={pad.l} y1={y(goal.target_amount)} x2={W - pad.r} y2={y(goal.target_amount)} stroke="var(--hair)" strokeDasharray="2 4" />
+      <path d={actualD} stroke={color} strokeWidth="2" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ContributionModal({ goal, onClose, onSaved }: { goal: GoalData; onClose: () => void; onSaved: () => void }) {
+  const [date, setDate]     = useState(new Date().toISOString().split("T")[0]);
+  const [amount, setAmount] = useState("");
+  const [note, setNote]     = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState("");
+
+  async function handleSave() {
+    if (!Number(amount)) return;
+    setSaving(true);
+    const res = await fetch(`/api/goals/${goal.id}/contributions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, amount: Number(amount), note }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      setError((await res.json()).error ?? "Failed to save.");
+      return;
+    }
+    onSaved();
+    onClose();
+  }
+
+  return (
+    <dialog className="modal modal-open">
+      <div className="modal-box max-w-sm">
+        <h3 className="text-lg font-bold">Add contribution</h3>
+        <p className="mt-1 text-sm text-base-content/60">{goal.name}</p>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend">Date</legend>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input input-bordered w-full" />
+          </fieldset>
+          <fieldset className="fieldset">
+            <legend className="fieldset-legend">Amount (CHF)</legend>
+            <input
+              type="number" step={50} value={amount} autoFocus
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="500"
+              className="input input-bordered w-full"
+            />
+          </fieldset>
+        </div>
+        <fieldset className="fieldset mt-2">
+          <legend className="fieldset-legend">Note (optional)</legend>
+          <input type="text" value={note} onChange={(e) => setNote(e.target.value)} className="input input-bordered w-full" />
+        </fieldset>
+
+        {error && <p className="mt-2 text-sm text-error">{error}</p>}
+
+        <div className="modal-action">
+          <button onClick={onClose} className="btn btn-ghost">Cancel</button>
+          <button onClick={handleSave} disabled={saving || !Number(amount)} className="btn btn-primary">
+            {saving ? "Saving…" : "Add"}
+          </button>
+        </div>
+      </div>
+      <form method="dialog" className="modal-backdrop"><button onClick={onClose}>close</button></form>
+    </dialog>
   );
 }
 
 export default function GoalsPage() {
+  const [goals, setGoals]     = useState<GoalData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [goalModal, setGoalModal] = useState<{ initial?: Goal } | null>(null);
+  const [contribGoal, setContribGoal] = useState<GoalData | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<GoalData | null>(null);
+
+  const fetchGoals = useCallback(() => {
+    fetch("/api/goals")
+      .then((r) => r.json())
+      .then((d) => { if (!d.error) setGoals(d); setLoading(false); });
+  }, []);
+
+  useEffect(() => { fetchGoals(); }, [fetchGoals]);
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    await fetch(`/api/goals/${deleteTarget.id}`, { method: "DELETE" });
+    setDeleteTarget(null);
+    fetchGoals();
+  }
+
+  const totalSaved  = goals.reduce((s, g) => s + g.saved, 0);
+  const totalTarget = goals.reduce((s, g) => s + g.target_amount, 0);
+  const monthlyAllocation = goals.reduce((s, g) => s + (g.monthly_needed ?? 0), 0);
+
   return (
     <div className="flex flex-col h-full">
       <PageHeader
         title={<SplitTitle left="Go" right="als" />}
         actions={
-          <button className="btn btn-sm btn-primary" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <button onClick={() => setGoalModal({})} className="btn btn-sm btn-primary">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
             </svg>
@@ -94,167 +170,133 @@ export default function GoalsPage() {
       />
 
       <div className="flex-1 px-9 pb-12 pt-2 space-y-4 overflow-y-auto">
-        {/* Summary row */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-          {[
-            { label: "Total saved", value: "CHF 43,800", color: "var(--pos)", sub: "across all goals" },
-            { label: "Total target", value: "CHF 142,499", color: "var(--ink)", sub: "combined targets" },
-            { label: "Monthly allocation", value: "CHF 3,150", color: "var(--brand)", sub: "towards goals" },
-            { label: "Debt remaining", value: "CHF 11,800", color: "var(--neg)", sub: "across 2 accounts" },
-          ].map(({ label, value, color, sub }) => (
-            <div key={label} className="v2-card v2-card-pad">
-              <div className="muted" style={{ fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{label}</div>
-              <div className="display-serif" style={{ fontSize: 24, color, lineHeight: 1.15 }}>{value}</div>
-              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{sub}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Save-up goals */}
-        <div className="v2-card v2-card-pad">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <div className="display-serif" style={{ fontSize: 17 }}>
-              Save-up <em className="display-italic" style={{ color: "var(--brand)" }}>goals</em>
-            </div>
-            <span className="chip" style={{ fontSize: 12 }}>{SAVE_GOALS.length} active</span>
+        {loading ? (
+          <div className="flex items-center justify-center py-24">
+            <span className="loading loading-spinner loading-lg"></span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            {SAVE_GOALS.map((g) => {
-              const pct = Math.round((g.current / g.target) * 100);
-              const cfg = STATUS_CONFIG[g.status];
-              const remaining = g.target - g.current;
-              return (
-                <div key={g.id} className="v2-card" style={{ padding: "18px 20px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: `${g.color}1a`, display: "grid", placeItems: "center", fontSize: 18, flexShrink: 0 }}>
-                        {g.icon}
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 14, fontWeight: 600 }}>{g.name}</div>
-                        <div className="muted" style={{ fontSize: 12 }}>Target: {g.targetDate}</div>
-                      </div>
-                    </div>
-                    <span style={{ fontSize: 11, padding: "3px 8px", borderRadius: 100, background: cfg.bg, color: cfg.color, fontWeight: 600, flexShrink: 0 }}>
-                      {cfg.label}
-                    </span>
-                  </div>
-
-                  <ProgressBar pct={pct} color={g.color} warn={g.status === "at-risk"} />
-
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
-                    <div>
-                      <div className="num" style={{ fontSize: 16, fontWeight: 700 }}>
-                        CHF {g.current.toLocaleString()}
-                      </div>
-                      <div className="muted" style={{ fontSize: 11.5 }}>saved</div>
-                    </div>
-                    <div style={{ textAlign: "center" }}>
-                      <div className="num" style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-2)" }}>
-                        {pct}%
-                      </div>
-                      <div className="muted" style={{ fontSize: 11.5 }}>complete</div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div className="num" style={{ fontSize: 16, fontWeight: 700 }}>
-                        CHF {g.target.toLocaleString()}
-                      </div>
-                      <div className="muted" style={{ fontSize: 11.5 }}>goal</div>
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: "var(--surface-2)", display: "flex", justifyContent: "space-between" }}>
-                    <span className="muted" style={{ fontSize: 12 }}>Monthly contribution</span>
-                    <span className="num" style={{ fontSize: 12, fontWeight: 600, color: g.color }}>CHF {g.monthly}/mo</span>
-                  </div>
-
-                  <div style={{ marginTop: 6, display: "flex", justifyContent: "flex-end" }}>
-                    <span className="muted" style={{ fontSize: 11.5 }}>CHF {remaining.toLocaleString()} remaining</span>
-                  </div>
+        ) : goals.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
+            <p className="text-sm font-medium text-base-content/60">No goals yet</p>
+            <p className="text-xs text-base-content/40">Create a savings goal and log contributions toward it</p>
+            <button onClick={() => setGoalModal({})} className="btn btn-primary btn-sm mt-2">New goal</button>
+          </div>
+        ) : (
+          <>
+            {/* Summary row */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+              {[
+                { label: "Total saved", value: formatCurrency(totalSaved, "CHF", 0), color: "var(--pos)", sub: "across all goals" },
+                { label: "Total target", value: formatCurrency(totalTarget, "CHF", 0), color: "var(--ink)", sub: "combined targets" },
+                { label: "Monthly needed", value: formatCurrency(monthlyAllocation, "CHF", 0), color: "var(--brand)", sub: "to stay on schedule" },
+              ].map(({ label, value, color, sub }) => (
+                <div key={label} className="v2-card v2-card-pad">
+                  <div className="muted" style={{ fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>{label}</div>
+                  <div className="display-serif num" style={{ fontSize: 24, color, lineHeight: 1.15 }}>{value}</div>
+                  <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{sub}</div>
                 </div>
-              );
-            })}
-          </div>
-        </div>
+              ))}
+            </div>
 
-        {/* Pay-down goals */}
-        <div className="v2-card v2-card-pad">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <div className="display-serif" style={{ fontSize: 17 }}>
-              Pay-down <em className="display-italic" style={{ color: "var(--brand)" }}>goals</em>
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <span className="chip" style={{ fontSize: 11.5, background: "var(--neg-soft)", color: "var(--neg)", border: "none" }}>Avalanche</span>
-              <span className="chip" style={{ fontSize: 11.5 }}>Snowball</span>
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            {PAY_GOALS.map((g) => {
-              const pctPaid = Math.round(((g.originalBalance - g.balance) / g.originalBalance) * 100);
-              return (
-                <div key={g.id} className="v2-card" style={{ padding: "18px 20px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: `${g.color}1a`, display: "grid", placeItems: "center", fontSize: 18, flexShrink: 0 }}>
-                        {g.icon}
-                      </div>
+            {/* Goal dashboards */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              {goals.map((g) => {
+                const color = g.color ?? DEFAULT_COLOR;
+                const pct = Math.min(100, Math.round((g.saved / g.target_amount) * 100));
+                return (
+                  <div key={g.id} className="v2-card" style={{ padding: "18px 20px" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
                       <div>
-                        <div style={{ fontSize: 14, fontWeight: 600 }}>{g.name}</div>
-                        <div className="muted" style={{ fontSize: 12 }}>
-                          {g.rate}% APR · min. CHF {g.minPayment}/mo
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ width: 10, height: 10, borderRadius: 3, background: color, display: "inline-block" }} />
+                          <span style={{ fontSize: 14, fontWeight: 600 }}>{g.name}</span>
+                        </div>
+                        <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                          {g.target_date ? `Target: ${formatDate(g.target_date)}` : "No target date"}
+                          {" · "}{g.contributions.length} contribution{g.contributions.length !== 1 ? "s" : ""}
                         </div>
                       </div>
+                      <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+                        <button onClick={() => setGoalModal({ initial: g })} className="btn btn-ghost btn-xs" title="Edit">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z" />
+                          </svg>
+                        </button>
+                        <button onClick={() => setDeleteTarget(g)} className="btn btn-ghost btn-xs" style={{ color: "var(--neg)" }} title="Delete">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            <line x1="10" y1="11" x2="10" y2="17" /><line x1="14" y1="11" x2="14" y2="17" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
-                    <span style={{
-                      fontSize: 11, padding: "3px 8px", borderRadius: 100, fontWeight: 600, flexShrink: 0,
-                      background: g.strategy === "avalanche" ? "var(--neg-soft)" : "var(--warn-soft)",
-                      color: g.strategy === "avalanche" ? "var(--neg)" : "var(--warn)",
-                    }}>
-                      {g.strategy === "avalanche" ? "Avalanche" : "Snowball"}
-                    </span>
-                  </div>
 
-                  <ProgressBar pct={pctPaid} color={g.color} />
+                    {/* Progress */}
+                    <div style={{ height: 8, borderRadius: 100, background: "var(--surface-3)", overflow: "hidden" }}>
+                      <div style={{ width: `${pct}%`, height: "100%", borderRadius: 100, background: color }} />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+                      <div>
+                        <div className="num" style={{ fontSize: 16, fontWeight: 700 }}>{formatCurrency(g.saved, "CHF", 0)}</div>
+                        <div className="muted" style={{ fontSize: 11.5 }}>saved</div>
+                      </div>
+                      <div style={{ textAlign: "center" }}>
+                        <div className="num" style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-2)" }}>{pct}%</div>
+                        <div className="muted" style={{ fontSize: 11.5 }}>complete</div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div className="num" style={{ fontSize: 16, fontWeight: 700 }}>{formatCurrency(g.target_amount, "CHF", 0)}</div>
+                        <div className="muted" style={{ fontSize: 11.5 }}>goal</div>
+                      </div>
+                    </div>
 
-                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
-                    <div>
-                      <div className="num" style={{ fontSize: 16, fontWeight: 700, color: "var(--neg)" }}>
-                        CHF {g.balance.toLocaleString()}
-                      </div>
-                      <div className="muted" style={{ fontSize: 11.5 }}>remaining</div>
+                    {/* Timeline: dashed target line vs actual contributions */}
+                    <div style={{ marginTop: 12 }}>
+                      <GoalTimeline goal={g} />
                     </div>
-                    <div style={{ textAlign: "center" }}>
-                      <div className="num" style={{ fontSize: 15, fontWeight: 600, color: "var(--ink-2)" }}>
-                        {pctPaid}%
+
+                    <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <div style={{ padding: "8px 12px", borderRadius: 8, background: "var(--surface-2)", flex: 1 }}>
+                        <span className="muted" style={{ fontSize: 12 }}>Monthly needed </span>
+                        <span className="num" style={{ fontSize: 12, fontWeight: 600, color }}>
+                          {g.monthly_needed != null ? `${formatCurrency(g.monthly_needed, "CHF", 0)}/mo` : "—"}
+                        </span>
                       </div>
-                      <div className="muted" style={{ fontSize: 11.5 }}>paid off</div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div className="num" style={{ fontSize: 16, fontWeight: 700 }}>
-                        CHF {g.originalBalance.toLocaleString()}
-                      </div>
-                      <div className="muted" style={{ fontSize: 11.5 }}>original</div>
+                      <button onClick={() => setContribGoal(g)} className="btn btn-outline btn-sm" style={{ flexShrink: 0 }}>
+                        Add contribution
+                      </button>
                     </div>
                   </div>
-
-                  <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    <div style={{ padding: "8px 12px", borderRadius: 8, background: "var(--surface-2)" }}>
-                      <div className="muted" style={{ fontSize: 11 }}>Payoff date</div>
-                      <div style={{ fontSize: 13, fontWeight: 600, marginTop: 2 }}>{g.payoffDate}</div>
-                    </div>
-                    <div style={{ padding: "8px 12px", borderRadius: 8, background: "var(--pos-soft)" }}>
-                      <div className="muted" style={{ fontSize: 11, color: "var(--pos)" }}>Interest saved</div>
-                      <div className="num" style={{ fontSize: 13, fontWeight: 600, color: "var(--pos)", marginTop: 2 }}>
-                        CHF {g.interestSaved}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
+
+      {goalModal && (
+        <GoalModal initial={goalModal.initial} onClose={() => setGoalModal(null)} onSaved={fetchGoals} />
+      )}
+      {contribGoal && (
+        <ContributionModal goal={contribGoal} onClose={() => setContribGoal(null)} onSaved={fetchGoals} />
+      )}
+      {deleteTarget && (
+        <dialog className="modal modal-open">
+          <div className="modal-box max-w-sm">
+            <h3 className="text-lg font-bold">Delete goal?</h3>
+            <p className="mt-2 text-sm text-base-content/60">
+              <span className="font-medium text-base-content">{deleteTarget.name}</span> and its{" "}
+              {deleteTarget.contributions.length} contribution{deleteTarget.contributions.length !== 1 ? "s" : ""} will be permanently deleted.
+            </p>
+            <div className="modal-action">
+              <button onClick={() => setDeleteTarget(null)} className="btn btn-ghost">Cancel</button>
+              <button onClick={handleDelete} className="btn btn-error">Delete</button>
+            </div>
+          </div>
+          <form method="dialog" className="modal-backdrop"><button onClick={() => setDeleteTarget(null)}>close</button></form>
+        </dialog>
+      )}
     </div>
   );
 }
