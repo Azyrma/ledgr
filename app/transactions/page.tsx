@@ -544,6 +544,11 @@ export default function TransactionsPage() {
   const canLink      = selected.size === 2 && selectedTxs.every((t) => t.linked_transaction_id === null);
   const canUnlink    = selected.size === 1 && selectedTxs[0]?.linked_transaction_id !== null;
   const allReimbursable = selected.size > 0 && selectedTxs.every((t) => t.reimbursable === 1);
+  const selectedSums = selectedTxs.reduce((m, t) => {
+    const cur = t.account_currency || "CHF";
+    m.set(cur, (m.get(cur) ?? 0) + t.amount);
+    return m;
+  }, new Map<string, number>());
 
   const fetchTransactions = useCallback(async (f: Filters, s: SortState, silent = false) => {
     if (!silent) setLoading(true);
@@ -1018,9 +1023,11 @@ export default function TransactionsPage() {
             <span className="text-sm font-medium text-base-content whitespace-nowrap">
               {selected.size} transaction{selected.size !== 1 ? "s" : ""} selected
             </span>
-            <span className="text-sm text-base-content/50 whitespace-nowrap">
-              {formatCurrency(selectedTxs.reduce((sum, t) => sum + t.amount * t.exchange_rate, 0))}
-            </span>
+            {[...selectedSums].map(([cur, sum]) => (
+              <span key={cur} className="text-sm text-base-content/50 whitespace-nowrap">
+                {formatCurrency(sum, cur)}
+              </span>
+            ))}
             <div className="h-4 w-px bg-base-300" />
 
             {/* Export */}
