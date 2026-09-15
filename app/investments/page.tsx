@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import PageHeader, { SplitTitle } from "@/app/components/PageHeader";
 import HoldingFormModal from "@/app/components/HoldingFormModal";
+import AssignHoldingModal, { type InvestmentTx } from "@/app/components/AssignHoldingModal";
 import type { Account, Holding } from "@/app/components/AccountCard";
 import { formatCurrency } from "@/lib/utils";
 
@@ -11,17 +12,21 @@ export default function InvestmentsPage() {
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [loading, setLoading]   = useState(true);
   const [formTarget, setFormTarget] = useState<{ accountId: number; holding?: Holding } | null>(null);
+  const [investmentTxs, setInvestmentTxs] = useState<InvestmentTx[]>([]);
+  const [assignTarget, setAssignTarget] = useState<{ tx: InvestmentTx; account: Account } | null>(null);
   const [deleting, setDeleting]     = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState<number | null>(null);
 
   const fetchAll = useCallback(async () => {
-    const [accRes, holdRes] = await Promise.all([
+    const [accRes, holdRes, txRes] = await Promise.all([
       fetch("/api/accounts"),
       fetch("/api/holdings"),
+      fetch("/api/holdings/unassigned"),
     ]);
     const accs: Account[] = await accRes.json();
     setAccounts(accs.filter((a) => a.type === "investment"));
     setHoldings(await holdRes.json());
+    setInvestmentTxs(await txRes.json());
     setLoading(false);
   }, []);
 
@@ -32,6 +37,16 @@ export default function InvestmentsPage() {
     await fetch(`/api/holdings?id=${id}`, { method: "DELETE" });
     setDeleting(null);
     fetchAll();
+  }
+
+  async function handleUnassign(txId: number) {
+    await fetch(`/api/holdings/assign?transaction_id=${txId}`, { method: "DELETE" });
+    fetchAll();
+  }
+
+  function formatDate(iso: string) {
+    const [y, m, d] = iso.split("-");
+    return `${d}.${m}.${y}`;
   }
 
   async function handleRefreshPrices(accountId: number) {
@@ -103,6 +118,9 @@ export default function InvestmentsPage() {
               const toAcct = (h: Holding) => h.rate_to_chf / account.exchange_rate;
               const totalMarketValue = accHoldings.reduce((s, h) => s + (h.market_value ?? h.total_value) * toAcct(h), 0);
               const totalCostBasis   = accHoldings.reduce((s, h) => s + h.total_value * toAcct(h), 0);
+              const accTxs = investmentTxs.filter((t) => t.account_id === account.id);
+              const unassigned = accTxs.filter((t) => !t.ticker);
+              const assigned = accTxs.filter((t) => t.ticker);
 
               return (
                 <div key={account.id} className="v2-card v2-card-pad">
@@ -234,12 +252,75 @@ export default function InvestmentsPage() {
                       </table>
                     </div>
                   )}
+
+                  {/* Investment transactions not yet linked to a holding */}
+                  {unassigned.length > 0 && (
+                    <div style={{ marginTop: 16 }}>
+                      <div className="muted" style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                        Unassigned purchases ({unassigned.length})
+                      </div>
+                      <div style={{ overflowX: "auto" }}>
+                        <table className="table table-sm">
+                          <tbody>
+                            {unassigned.map((t) => (
+                              <tr key={t.id} className="hover">
+                                <td className="font-mono whitespace-nowrap">{formatDate(t.date)}</td>
+                                <td>{t.description}</td>
+                                <td className="text-right font-mono whitespace-nowrap">{formatCurrency(t.amount, account.currency)}</td>
+                                <td className="text-right">
+                                  <button onClick={() => setAssignTarget({ tx: t, account })} className="btn btn-outline btn-xs">Assign</button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                  {assigned.length > 0 && (
+                    <details style={{ marginTop: 12 }}>
+                      <summary className="muted" style={{ fontSize: 12, cursor: "pointer" }}>
+                        Assigned transactions ({assigned.length})
+                      </summary>
+                      <div style={{ overflowX: "auto" }}>
+                        <table className="table table-sm">
+                          <tbody>
+                            {assigned.map((t) => (
+                              <tr key={t.id} className="hover">
+                                <td className="font-mono whitespace-nowrap">{formatDate(t.date)}</td>
+                                <td>
+                                  {t.description}
+                                  <span className="chip" style={{ fontSize: 11, marginLeft: 6 }}>
+                                    {t.ticker}{t.shares !== 0 ? ` · ${t.shares > 0 ? "+" : ""}${t.shares}` : " · dividend"}
+                                  </span>
+                                </td>
+                                <td className="text-right font-mono whitespace-nowrap">{formatCurrency(t.amount, account.currency)}</td>
+                                <td className="text-right">
+                                  <button onClick={() => handleUnassign(t.id)} className="btn btn-ghost btn-xs">Unassign</button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </details>
+                  )}
                 </div>
               );
             })}
           </>
         )}
       </div>
+
+      {assignTarget && (
+        <AssignHoldingModal
+          tx={assignTarget.tx}
+          account={assignTarget.account}
+          holdings={holdings.filter((h) => h.account_id === assignTarget.account.id)}
+          onClose={() => setAssignTarget(null)}
+          onSaved={fetchAll}
+        />
+      )}
 
       {formTarget && (
         <HoldingFormModal
