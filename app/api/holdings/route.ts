@@ -1,23 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { HOLDING_RATE_SQL } from "@/lib/exchange-rates";
 
 export function GET(request: NextRequest) {
   const accountId = request.nextUrl.searchParams.get("account_id");
   const db = getDb();
 
   const sql = `
-    SELECT *,
-      (shares * avg_cost_per_share) AS total_value,
-      CASE WHEN current_price IS NOT NULL THEN (shares * current_price) ELSE NULL END AS market_value
-    FROM holdings
+    SELECT h.*,
+      (h.shares * h.avg_cost_per_share) AS total_value,
+      CASE WHEN h.current_price IS NOT NULL THEN (h.shares * h.current_price) ELSE NULL END AS market_value,
+      ${HOLDING_RATE_SQL} AS rate_to_chf
+    FROM holdings h
+    JOIN accounts a ON a.id = h.account_id
+    LEFT JOIN exchange_rate_cache c ON c.currency = h.currency
   `;
 
   if (accountId) {
-    const rows = db.prepare(sql + " WHERE account_id = ? ORDER BY ticker").all(Number(accountId));
+    const rows = db.prepare(sql + " WHERE h.account_id = ? ORDER BY h.ticker").all(Number(accountId));
     return NextResponse.json(rows);
   }
 
-  const rows = db.prepare(sql + " ORDER BY ticker").all();
+  const rows = db.prepare(sql + " ORDER BY h.ticker").all();
   return NextResponse.json(rows);
 }
 

@@ -48,16 +48,8 @@ export default function InvestmentsPage() {
     }
   }
 
-  // CHF conversion uses the parent account's exchange_rate (known approximation
-  // when a holding's currency differs from the account's — see TODO.md).
-  const totalChf = accounts.reduce((sum, a) => {
-    const accHoldings = holdings.filter((h) => h.account_id === a.id);
-    return sum + accHoldings.reduce((s, h) => s + (h.market_value ?? h.total_value), 0) * a.exchange_rate;
-  }, 0);
-  const costChf = accounts.reduce((sum, a) => {
-    const accHoldings = holdings.filter((h) => h.account_id === a.id);
-    return sum + accHoldings.reduce((s, h) => s + h.total_value, 0) * a.exchange_rate;
-  }, 0);
+  const totalChf = holdings.reduce((s, h) => s + (h.market_value ?? h.total_value) * h.rate_to_chf, 0);
+  const costChf = holdings.reduce((s, h) => s + h.total_value * h.rate_to_chf, 0);
   const hasAnyMarket = holdings.some((h) => h.market_value != null);
   const gainChf = totalChf - costChf;
 
@@ -108,8 +100,9 @@ export default function InvestmentsPage() {
               const accHoldings = holdings.filter((h) => h.account_id === account.id);
               const hasMarketPrices = accHoldings.some((h) => h.market_value != null);
               const hasIsins = accHoldings.some((h) => h.isin);
-              const totalMarketValue = accHoldings.reduce((s, h) => s + (h.market_value ?? h.total_value), 0);
-              const totalCostBasis   = accHoldings.reduce((s, h) => s + h.total_value, 0);
+              const toAcct = (h: Holding) => h.rate_to_chf / account.exchange_rate;
+              const totalMarketValue = accHoldings.reduce((s, h) => s + (h.market_value ?? h.total_value) * toAcct(h), 0);
+              const totalCostBasis   = accHoldings.reduce((s, h) => s + h.total_value * toAcct(h), 0);
 
               return (
                 <div key={account.id} className="v2-card v2-card-pad">
