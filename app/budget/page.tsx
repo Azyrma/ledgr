@@ -29,7 +29,10 @@ function sum(leaves: BudgetLeaf[], key: "budget" | "actual") {
   return leaves.reduce((s, l) => s + l[key], 0);
 }
 
-function SummaryTile({ label, budget, actual }: { label: string; budget: number; actual: number }) {
+function SummaryTile({ label, budget, actual, shares }: {
+  label: string; budget: number; actual: number;
+  shares?: { label: string; pct: number | null; target: number }[]; // share of budgeted income (null when 0) vs 50/30/20 target
+}) {
   const remaining = budget - actual;
   return (
     <div style={{ flex: 1 }}>
@@ -49,6 +52,15 @@ function SummaryTile({ label, budget, actual }: { label: string; budget: number;
           ? `${formatCurrency(remaining, "CHF", 0)} remaining`
           : `${formatCurrency(-remaining, "CHF", 0)} over`}
       </div>
+      {shares && (
+        <div className="muted num" style={{ fontSize: 12, marginTop: 2, display: "flex", gap: 10 }}>
+          {shares.map((s) => (
+            <span key={s.label} style={{ color: s.pct != null && s.pct > s.target ? "var(--neg)" : undefined }}>
+              {s.label} {s.pct == null ? "—" : `${s.pct.toFixed(0)}%`} <span className="muted">/ {s.target}%</span>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -120,6 +132,9 @@ export default function BudgetPage() {
   const incomeActual  = sum(income?.leaves ?? [], "actual");
   const expenseActual = sum(expenseLeaves, "actual");
   const leftover = incomeActual - expenseActual;
+  // 50/30/20 check on the budget itself: budgeted group vs budgeted income
+  const incomeBudget = sum(income?.leaves ?? [], "budget");
+  const pctOfIncome = (v: number) => (incomeBudget > 0 ? (v / incomeBudget) * 100 : null);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -163,11 +178,16 @@ export default function BudgetPage() {
                 label="Total Expenses"
                 budget={sum(expenseLeaves, "budget")}
                 actual={expenseActual}
+                shares={[
+                  { label: "Needs", pct: pctOfIncome(sum(needs?.leaves ?? [], "budget")), target: 50 },
+                  { label: "Wants", pct: pctOfIncome(sum(wants?.leaves ?? [], "budget")), target: 30 },
+                ]}
               />
               <SummaryTile
                 label="Total Savings"
                 budget={sum(savings?.leaves ?? [], "budget")}
                 actual={sum(savings?.leaves ?? [], "actual")}
+                shares={[{ label: "Savings", pct: pctOfIncome(sum(savings?.leaves ?? [], "budget")), target: 20 }]}
               />
               <div style={{ flex: 1, borderLeft: "1px solid var(--hair)", paddingLeft: 32 }}>
                 <div className="muted" style={{ fontSize: 11.5, fontWeight: 500, letterSpacing: "0.06em", textTransform: "uppercase" }}>
