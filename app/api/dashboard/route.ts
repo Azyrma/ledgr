@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import type Database from "better-sqlite3";
 import { getDb, sqlPlaceholders } from "@/lib/db";
+import { HOLDING_RATE_SQL, HOLDINGS_CHF_BY_ACCOUNT_SQL } from "@/lib/exchange-rates";
 import { buildCategoryNodeMap, getCategoryPath, type FlatCat } from "@/lib/categories";
 
 
@@ -124,7 +125,7 @@ export function GET(request: NextRequest) {
     // ── Total balance (cash + holdings market value, converted to CHF) ──
     const { balance } = db.prepare(`
       SELECT COALESCE(SUM(
-        (a.initial_balance + COALESCE(t.tx_sum, 0) + COALESCE(h.holdings_sum, 0)) * a.exchange_rate
+        (a.initial_balance + COALESCE(t.tx_sum, 0)) * a.exchange_rate + COALESCE(h.holdings_chf, 0)
       ), 0) AS balance
       FROM accounts a
       LEFT JOIN (
@@ -132,11 +133,7 @@ export function GET(request: NextRequest) {
         FROM transactions
         GROUP BY account_id
       ) t ON t.account_id = a.id
-      LEFT JOIN (
-        SELECT account_id, SUM(shares * COALESCE(current_price, 0)) AS holdings_sum
-        FROM holdings
-        GROUP BY account_id
-      ) h ON h.account_id = a.id
+      LEFT JOIN (${HOLDINGS_CHF_BY_ACCOUNT_SQL}) h ON h.account_id = a.id
       ${acctAcctC}
     `).get(...acctP) as { balance: number };
 
@@ -375,9 +372,11 @@ export function GET(request: NextRequest) {
       SELECT a.id, a.name, a.type, a.currency, a.color,
              COALESCE(a.initial_balance + SUM(t.amount), a.initial_balance)
              + COALESCE((
-                 SELECT SUM(h.shares * COALESCE(h.current_price, 0))
-                 FROM holdings h WHERE h.account_id = a.id
-               ), 0) AS balance
+                 SELECT SUM(h.shares * COALESCE(h.current_price, 0) * ${HOLDING_RATE_SQL})
+                 FROM holdings h
+                 LEFT JOIN exchange_rate_cache c ON c.currency = h.currency
+                 WHERE h.account_id = a.id
+               ), 0) / a.exchange_rate AS balance
       FROM accounts a
       LEFT JOIN transactions t ON t.account_id = a.id
       ${acctAcctC}

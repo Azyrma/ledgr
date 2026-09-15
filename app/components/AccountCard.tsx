@@ -30,6 +30,7 @@ export type Holding = {
   price_updated_at: string | null;
   total_value: number;
   market_value: number | null;
+  rate_to_chf: number;
 };
 
 type Props = {
@@ -110,8 +111,10 @@ export default function AccountCard({ account, holdings, periodLabel = "all time
   const typeLabel = ACCOUNT_TYPES.find((t) => t.value === account.type)?.label ?? account.type;
   const isInvestment = account.type === "investment";
   const hasMarketPrices = holdings?.some((h) => h.market_value != null) ?? false;
-  const portfolioValue = holdings?.reduce((sum, h) => sum + (h.market_value ?? h.total_value), 0) ?? 0;
-  const costBasis = holdings?.reduce((sum, h) => sum + h.total_value, 0) ?? 0;
+  // holdings may be in other currencies than the account: convert via CHF
+  const toAcct = (h: Holding) => h.rate_to_chf / account.exchange_rate;
+  const portfolioValue = holdings?.reduce((sum, h) => sum + (h.market_value ?? h.total_value) * toAcct(h), 0) ?? 0;
+  const costBasis = holdings?.reduce((sum, h) => sum + h.total_value * toAcct(h), 0) ?? 0;
 
   const sparkValues = account.sparkline ?? [];
 

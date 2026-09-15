@@ -1,6 +1,21 @@
 import type Database from "better-sqlite3";
 
 const CURRENCIES = ["EUR", "USD", "SEK", "GBP"];
+
+// CHF per 1 unit of holding h's currency. Requires aliases h (holdings), a (accounts)
+// and c (LEFT JOIN exchange_rate_cache c ON c.currency = h.currency) in scope.
+// Falls back to the account rate when the cache has no entry (no API key yet).
+export const HOLDING_RATE_SQL =
+  "COALESCE(c.rate_to_chf, CASE WHEN h.currency = 'CHF' THEN 1.0 ELSE a.exchange_rate END)";
+
+// Per-account market value of all holdings, in CHF: (account_id, holdings_chf)
+export const HOLDINGS_CHF_BY_ACCOUNT_SQL = `
+  SELECT h.account_id, SUM(h.shares * COALESCE(h.current_price, 0) * ${HOLDING_RATE_SQL}) AS holdings_chf
+  FROM holdings h
+  JOIN accounts a ON a.id = h.account_id
+  LEFT JOIN exchange_rate_cache c ON c.currency = h.currency
+  GROUP BY h.account_id
+`;
 const REFRESH_DAYS = 7;
 
 export async function refreshExchangeRates(db: Database.Database): Promise<void> {

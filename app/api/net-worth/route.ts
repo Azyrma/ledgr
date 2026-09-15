@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, sqlPlaceholders } from "@/lib/db";
+import { HOLDINGS_CHF_BY_ACCOUNT_SQL } from "@/lib/exchange-rates";
 
 export const dynamic = "force-dynamic";
 
@@ -61,7 +62,7 @@ export function GET(request: NextRequest) {
     // Current total balance (cash + holdings market value)
     const { balance } = db.prepare(`
       SELECT COALESCE(SUM(
-        (a.initial_balance + COALESCE(t.tx_sum, 0) + COALESCE(h.holdings_sum, 0)) * a.exchange_rate
+        (a.initial_balance + COALESCE(t.tx_sum, 0)) * a.exchange_rate + COALESCE(h.holdings_chf, 0)
       ), 0) AS balance
       FROM accounts a
       LEFT JOIN (
@@ -69,11 +70,7 @@ export function GET(request: NextRequest) {
         FROM transactions
         GROUP BY account_id
       ) t ON t.account_id = a.id
-      LEFT JOIN (
-        SELECT account_id, SUM(shares * COALESCE(current_price, 0)) AS holdings_sum
-        FROM holdings
-        GROUP BY account_id
-      ) h ON h.account_id = a.id
+      LEFT JOIN (${HOLDINGS_CHF_BY_ACCOUNT_SQL}) h ON h.account_id = a.id
       ${acctAcctC}
     `).get(...acctP) as { balance: number };
 
