@@ -208,4 +208,5 @@ export const MIGRATIONS = `
     amount  REAL NOT NULL,
     note    TEXT NOT NULL DEFAULT ''
   );
+  ALTER TABLE transactions ADD COLUMN price_per_share REAL;
 `;

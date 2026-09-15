@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { parseFile, detectBankType } from "@/lib/parsers";
 import { buildCategoryNodeMap, getCategoryPath, type FlatCat } from "@/lib/categories";
+import { syncHoldings } from "@/lib/holdings";
 
 
 export async function POST(request: NextRequest) {
@@ -97,83 +98,5 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Import failed.";
     return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
-
-/**
- * Recalculate holdings for each unique ticker that was imported.
- * Uses all transactions for that ticker in the account (not just the import batch)
- * to ensure correctness even on re-import.
- */
-function syncHoldings(
-  db: ReturnType<typeof getDb>,
-  accountId: number,
-  imported: { ticker?: string; holdingName?: string; holdingCurrency?: string; isin?: string }[],
-  accountCurrency: string
-) {
-  const tickers = [...new Set(imported.filter((t) => t.ticker).map((t) => t.ticker!))];
-  if (tickers.length === 0) return;
-
-  // Build a map of ticker -> display name and currency from the imported data
-  const metaMap = new Map<string, { name: string; currency: string; isin: string }>();
-  for (const t of imported) {
-    if (t.ticker && !metaMap.has(t.ticker)) {
-      metaMap.set(t.ticker, {
-        name: t.holdingName ?? t.ticker,
-        currency: t.holdingCurrency ?? accountCurrency,
-        isin: t.isin ?? "",
-      });
-    }
-  }
-
-  type TxRow = { shares: number; amount: number };
-
-  for (const ticker of tickers) {
-    // Get ALL transactions for this ticker in this account, chronologically
-    const txs = db.prepare(
-      "SELECT shares, amount FROM transactions WHERE account_id = ? AND ticker = ? ORDER BY date ASC, id ASC"
-    ).all(accountId, ticker) as TxRow[];
-
-    let totalShares = 0;
-    let totalCost = 0;
-
-    for (const tx of txs) {
-      if (tx.shares > 0) {
-        // Buy: add shares, add to cost basis
-        totalCost += Math.abs(tx.amount);
-        totalShares += tx.shares;
-      } else if (tx.shares < 0) {
-        // Sell: reduce shares, reduce cost proportionally (avg cost method)
-        const sellShares = Math.abs(tx.shares);
-        if (totalShares > 0) {
-          const costPerShare = totalCost / totalShares;
-          totalCost -= costPerShare * sellShares;
-        }
-        totalShares -= sellShares;
-      }
-      // Dividends (shares = 0, amount > 0) don't affect holdings
-    }
-
-    const avgCost = totalShares > 0 ? totalCost / totalShares : 0;
-    const meta = metaMap.get(ticker) ?? { name: ticker, currency: accountCurrency, isin: "" };
-
-    const existingHolding = db.prepare(
-      "SELECT id FROM holdings WHERE account_id = ? AND ticker = ?"
-    ).get(accountId, ticker) as { id: number } | undefined;
-
-    if (totalShares <= 0.0001) {
-      // No shares left — remove holding if it exists
-      if (existingHolding) {
-        db.prepare("DELETE FROM holdings WHERE id = ?").run(existingHolding.id);
-      }
-    } else if (existingHolding) {
-      db.prepare(
-        "UPDATE holdings SET name = ?, shares = ?, avg_cost_per_share = ?, currency = ?, isin = ? WHERE id = ?"
-      ).run(meta.name, totalShares, avgCost, meta.currency, meta.isin, existingHolding.id);
-    } else {
-      db.prepare(
-        "INSERT INTO holdings (account_id, ticker, name, shares, avg_cost_per_share, currency, isin) VALUES (?, ?, ?, ?, ?, ?, ?)"
-      ).run(accountId, ticker, meta.name, totalShares, avgCost, meta.currency, meta.isin);
-    }
   }
 }
