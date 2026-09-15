@@ -11,7 +11,7 @@ const GROUPS = [
   { name: "Savings", rootId: 5 },
 ];
 
-type Leaf = { path: string; name: string; depth: number; color: string | null };
+type Leaf = { path: string; name: string; depth: number; color: string | null; parent: boolean };
 
 // All non-system leaf categories under a root, in tree order, with inherited color.
 function collectLeaves(
@@ -28,9 +28,13 @@ function collectLeaves(
   const color = node.color ?? inheritedColor;
   const userChildren = node.children.filter((c) => !c.is_system);
   if (userChildren.length === 0) {
-    return [{ path: getCategoryPath(rootId, nodeMap), name: node.name, depth, color }];
+    return [{ path: getCategoryPath(rootId, nodeMap), name: node.name, depth, color, parent: false }];
   }
-  return userChildren.flatMap((c) => collectLeaves(c.id, nodeMap, depth + 1, color));
+  // Parent row (read-only, rolled-up totals) followed by its children
+  return [
+    { path: getCategoryPath(rootId, nodeMap), name: node.name, depth, color, parent: true },
+    ...userChildren.flatMap((c) => collectLeaves(c.id, nodeMap, depth + 1, color)),
+  ];
 }
 
 export function GET(request: NextRequest) {
@@ -73,6 +77,16 @@ export function GET(request: NextRequest) {
         const budget = budgetMap.get(leaf.path) ?? 0;
         return { ...leaf, budget, actual, remaining: budget - actual };
       });
+      // Parents roll up their subtree (plus transactions filed directly on the parent path)
+      for (let i = 0; i < leaves.length; i++) {
+        if (!leaves[i].parent) continue;
+        for (let j = i + 1; j < leaves.length && leaves[j].depth > leaves[i].depth; j++) {
+          if (leaves[j].parent) continue;
+          leaves[i].budget += leaves[j].budget;
+          leaves[i].actual += leaves[j].actual;
+        }
+        leaves[i].remaining = leaves[i].budget - leaves[i].actual;
+      }
       return { name: g.name, leaves };
     });
 

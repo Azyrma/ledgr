@@ -9,6 +9,7 @@ type BudgetLeaf = {
   name: string;
   depth: number;
   color: string | null;
+  parent: boolean; // read-only row whose totals roll up its children
   budget: number;
   actual: number;
   remaining: number;
@@ -26,7 +27,7 @@ const MONTH_NAMES = [
 const DEFAULT_COLOR = "#A89080";
 
 function sum(leaves: BudgetLeaf[], key: "budget" | "actual") {
-  return leaves.reduce((s, l) => s + l[key], 0);
+  return leaves.reduce((s, l) => s + (l.parent ? 0 : l[key]), 0);
 }
 
 function SummaryTile({ label, budget, actual, shares }: {
@@ -231,11 +232,23 @@ export default function BudgetPage() {
                             <td>
                               <span style={{ display: "inline-flex", alignItems: "center", gap: 8, paddingLeft: leaf.depth * 14 }} title={leaf.path}>
                                 <span style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
-                                <span style={{ fontSize: 13 }}>{leaf.name}</span>
+                                <span style={{ fontSize: 13, fontWeight: leaf.parent ? 600 : undefined }}>{leaf.name}</span>
                               </span>
                             </td>
                             <td className="text-right">
-                              <BudgetCell leaf={leaf} ym={ym} onSaved={fetchData} />
+                              {leaf.parent ? (
+                                // same classes as BudgetCell so the numbers line up; not editable
+                                <input
+                                  readOnly
+                                  tabIndex={-1}
+                                  value={leaf.budget > 0 ? leaf.budget : ""}
+                                  placeholder="—"
+                                  className="input input-xs input-ghost num w-24 text-right"
+                                  style={{ fontSize: 13, fontWeight: 600, pointerEvents: "none" }}
+                                />
+                              ) : (
+                                <BudgetCell leaf={leaf} ym={ym} onSaved={fetchData} />
+                              )}
                             </td>
                             <td className="text-right num" style={{ fontSize: 13 }}>
                               {leaf.actual !== 0 ? formatCurrency(leaf.actual) : <span className="muted">—</span>}
