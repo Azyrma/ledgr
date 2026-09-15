@@ -534,6 +534,7 @@ export default function TransactionsPage() {
   const [selected, setSelected]         = useState<Set<number>>(new Set());
   const [showCatPopover, setShowCatPopover] = useState(false);
   const [bulkWorking, setBulkWorking]   = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [editing, setEditing]           = useState<EditState>(null);
   const [sort, setSort]                 = useState<SortState>({ field: "date", dir: "desc" });
   const [categoryDisplayMap, setCategoryDisplayMap] = useState<Map<string, CategoryDisplay>>(new Map());
@@ -849,6 +850,7 @@ export default function TransactionsPage() {
   }
 
   function handleBulkDelete() {
+    setConfirmDelete(false);
     const ids = new Set(selected);
     setTransactions(prev => prev.filter(t => !ids.has(t.id)));
     setSelected(new Set());
@@ -1145,7 +1147,7 @@ export default function TransactionsPage() {
 
             {/* Delete */}
             <button
-              onClick={handleBulkDelete}
+              onClick={() => setConfirmDelete(true)}
               disabled={bulkWorking}
               style={{
                 backgroundColor: "rgba(220, 38, 38, 0.12)",
@@ -1245,6 +1247,22 @@ export default function TransactionsPage() {
             <button onClick={() => setRecatDialog(null)}>close</button>
           </form>
         </div>
+      )}
+
+      {confirmDelete && (
+        <dialog className="modal modal-open">
+          <div className="modal-box max-w-sm" style={{ borderRadius: 16, background: "var(--surface)", border: "1px solid var(--hair)" }}>
+            <h3 style={{ fontSize: 17, fontWeight: 600 }}>Delete?</h3>
+            <p className="muted" style={{ marginTop: 8, fontSize: 13 }}>
+              <span style={{ fontWeight: 600, color: "var(--ink)" }}>{selected.size} transaction{selected.size !== 1 ? "s" : ""}</span> will be deleted. This cannot be undone.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
+              <button onClick={() => setConfirmDelete(false)} className="btn btn-sm btn-ghost">Cancel</button>
+              <button onClick={handleBulkDelete} className="btn btn-sm" style={{ background: "var(--neg)", color: "#fff", border: "none" }}>Delete</button>
+            </div>
+          </div>
+          <form method="dialog" className="modal-backdrop"><button onClick={() => setConfirmDelete(false)}>close</button></form>
+        </dialog>
       )}
     </div>
   );
