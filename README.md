@@ -82,7 +82,6 @@ lib/
 ├── exchange-rates.ts   # Weekly rate refresh from currencyapi.com
 └── parsers/            # One file per bank format + auto-detection
 
-csv-converter/          # Standalone Python helper: bank export → categorized XLSX
 DESIGN.md               # Ledgr v2 design system (tokens, type scale, components)
 ```
 

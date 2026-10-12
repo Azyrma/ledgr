@@ -169,7 +169,7 @@ export const MIGRATIONS = `
     created_at TEXT   NOT NULL DEFAULT (datetime('now'))
   );
   INSERT OR IGNORE INTO tags (id, name, color, icon, is_system) VALUES (1, 'Transfer',        '#6B8CAE', NULL, 1);
-  INSERT OR IGNORE INTO tags (id, name, color, icon, is_system) VALUES (2, 'Reimbursable', '#C49A3C', NULL, 1);
+  INSERT OR IGNORE INTO tags (id, name, color, icon, is_system) VALUES (2, 'Reimbursable',    '#C49A3C', NULL, 1);
   INSERT OR IGNORE INTO tags (id, name, color, icon, is_system) VALUES (3, 'Needs review',    '#E07B4F', NULL, 1);
   ALTER TABLE accounts ADD COLUMN archived INTEGER NOT NULL DEFAULT 0;
   CREATE TABLE IF NOT EXISTS rules (

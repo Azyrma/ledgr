@@ -562,6 +562,7 @@ export default function TransactionsPage() {
   const canLink      = selected.size === 2 && selectedTxs.every((t) => t.linked_transaction_id === null);
   const canUnlink    = selected.size === 1 && selectedTxs[0]?.linked_transaction_id !== null;
   const allReimbursable = selected.size > 0 && selectedTxs.every((t) => t.reimbursable === 1);
+  const reimbursableName = (tags.find((t) => t.id === 2)?.name ?? "Reimbursable").toLowerCase();
   const selectedSums = selectedTxs.reduce((m, t) => {
     const cur = t.account_currency || "CHF";
     m.set(cur, (m.get(cur) ?? 0) + t.amount);
@@ -1127,7 +1128,7 @@ export default function TransactionsPage() {
                   <circle cx="9" cy="7" r="4" />
                   <line x1="17" y1="8" x2="23" y2="8" />
                 </svg>
-                Remove reimbursable
+                Remove {reimbursableName}
               </button>
             ) : (
               <button
@@ -1141,7 +1142,7 @@ export default function TransactionsPage() {
                   <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
                   <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                 </svg>
-                Mark {selected.size} as reimbursable
+                Mark {selected.size} as {reimbursableName}
               </button>
             )}
 
@@ -1189,11 +1190,11 @@ export default function TransactionsPage() {
       {showMarkReimbursableConfirm && (
         <div className="modal modal-open">
           <div className="modal-box">
-            <h2 className="text-lg font-bold">Mark as reimbursable?</h2>
+            <h2 className="text-lg font-bold">Mark as {reimbursableName}?</h2>
             <p className="py-4 text-sm">
               This will mark{" "}
               <span className="font-medium">{selected.size} transaction{selected.size !== 1 ? "s" : ""}</span>
-              {" "}as reimbursable.
+              {" "}as {reimbursableName}.
             </p>
             <div className="modal-action">
               <button onClick={() => setShowMarkReimbursableConfirm(false)} className="btn btn-ghost">Cancel</button>
@@ -1210,7 +1211,7 @@ export default function TransactionsPage() {
         // ponytail: fixed offset clears a one-row action bar; measure barRef if the wrapped bar ever overlaps
         <div className={`toast toast-bottom toast-center z-50 ${selected.size > 0 ? "mb-20" : ""}`}>
           <div className="alert shadow-lg flex items-center gap-3">
-            <span className="text-sm">Marked {reimbursableUndo.ids.length} transaction{reimbursableUndo.ids.length !== 1 ? "s" : ""} as reimbursable.</span>
+            <span className="text-sm">Marked {reimbursableUndo.ids.length} transaction{reimbursableUndo.ids.length !== 1 ? "s" : ""} as {reimbursableName}.</span>
             <button onClick={handleUndoMarkReimbursable} className="btn btn-sm btn-ghost">Undo</button>
           </div>
         </div>

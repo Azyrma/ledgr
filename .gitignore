@@ -38,8 +38,7 @@ yarn-error.log*
 
 # database & local data
 /data/
-/csv-converter/input/
-/csv-converter/output/
+/csv-converter/
 notes.txt
 
 # typescript
@@ -53,6 +52,3 @@ TODO.md
 *.db
 *.db-wal
 *.db-shm
-
-csv-converter/__pycache__/
-csv-converter/*.pyc
